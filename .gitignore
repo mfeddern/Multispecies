@@ -1,3 +1,9 @@
+# Mac system files
+.DS_store
+
+# Net CDF files
+*.nc
+
 # History files
 .Rhistory
 .Rapp.history
