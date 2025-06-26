@@ -63,4 +63,15 @@ ps_env_st <- ps_recdev%>%
   cbind(year = ps_recdev$year)
 ps_dat_st <-data.frame(ps_env_st)%>%
   left_join(data.frame(ps_recdev%>%select(type, year, Y_rec,sd)))
-write.csv(ps_dat_st,"Data/Petrale/DATA_Combined_glorys_petrale_UNSTANDARDIZED.csv")
+write.csv(ps_dat_st,"Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv")
+
+### Sablefish Data ###
+
+sb_recdev <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_UNSTANDARDIZED.csv"))
+sb_env_st <-sb_recdev%>%
+  select(-c(year, type, Y_rec, sd))%>%
+  scale()%>%
+  cbind(year = sb_recdev$year)
+sb_dat_st <-data.frame(sb_env_st)%>%
+  left_join(data.frame(sb_recdev%>%select(type, year, Y_rec,sd)))
+write.csv(ps_dat_st,"Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv")
