@@ -56,8 +56,11 @@ write.csv(hk_dat_st,"Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv")
 
 ### Petrale Sole Data ###
 
-ps_recdev <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale.csv"))
+ps_recdev <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_UNSTANDARDIZED.csv"))
 ps_env_st <- ps_recdev%>%
   select(-c(year, type, Y_rec, sd))%>%
   scale()%>%
   cbind(year = ps_recdev$year)
+ps_dat_st <-data.frame(ps_env_st)%>%
+  left_join(data.frame(ps_recdev%>%select(type, year, Y_rec,sd)))
+write.csv(ps_dat_st,"Data/Petrale/DATA_Combined_glorys_petrale_UNSTANDARDIZED.csv")
