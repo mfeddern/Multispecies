@@ -21,7 +21,7 @@ library(ggpubr)
 #### Reading in the data ####
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-X)%>%
-  filter(Datatreatment=="2025 Final"&type=="Main"&year>1993)
+  filter(Datatreatment=="Expanded PacFIN"&type=="Main_RecrDev"&year>1993)
   
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
@@ -77,7 +77,6 @@ combs <- list("combinations" = combinations, "covariates" = covariates)
 return(combs)
 
 }
-
 model_fit <- function(combinations, dat){
   models <- list()
   results <- data.frame()
@@ -156,7 +155,6 @@ model_fit <- function(combinations, dat){
   
   return(results_output)
 }
-
 RMSE_improvement <-function(results,baseline_rmse,gam_model){
   baseline_rmse <-0.4
   
@@ -231,6 +229,23 @@ yt_predicted <- yt_results$predicted
 yt_baseline <- 0.4
 yt_model <- gam(Y_rec~1,data=yt_dat)
 yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model)
+
+yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
+yt_marginals$total_aic <- apply(marginals[,c("aic_12", "aic_23")], 1, mean)
+
+gam_loo_table <- dplyr::arrange(yt_marginals, rmse_23)%>%
+  dplyr::select(cov, rmse_23, total_aic)%>%
+  mutate(cv="LOO",model="GAM")
+gam_loo_table[is.na(gam_loo_table)] <-"No"
+cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
+
+marginal <- ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip the axes to make a horizontal bar graph
+  labs(y = "Marginal Improvement RMSE", x = "Predictor")+
+  scale_fill_manual(values=c('grey',cols[3]))+
+  theme_classic()
+marginal 
 
 ### Calculating Relative Variable Importance ###
 
