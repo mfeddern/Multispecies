@@ -20,7 +20,7 @@ library(ggpubr)
 
 #### Reading in the data ####
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
-  select(-X)%>%
+  select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(Datatreatment=="Expanded PacFIN"&type=="Main_RecrDev"&year>1993)
   
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
@@ -155,7 +155,7 @@ model_fit <- function(combinations, dat){
   
   return(results_output)
 }
-RMSE_improvement <-function(results,baseline_rmse,gam_model){
+RMSE_improvement <-function(results,baseline_rmse,gam_model, covariates){
   baseline_rmse <-0.4
   
   # we can calculate the marginal improvement for each covariate
@@ -217,7 +217,99 @@ RMSE_improvement <-function(results,baseline_rmse,gam_model){
   }
   return(marginals)
 }
+rw_model_fit <- function(combinations, dataset,yrlast){
+  models <- list()
+  results <- data.frame()
+  predicted<-data.frame()
 
+  #n_year <-lengthwindow
+  length_window<-10
+  firstyear<-1994:(yrlast-length_window)
+  for(k in jstart:length(firstyear)){
+    lastyear=firstyear[k]+length_window
+    dat <- dataset%>%filter(year>=firstyear[k]&year<=lastyear)
+    models <- list()
+    jstart<-1
+    results_temp <- data.frame()
+    predicted_temp <- data.frame()
+    for (i in seq_along(combinations)) {
+      # k represent the number of parameters / knots estimating function at, should be small
+      #smooth_terms <- paste("s( total_release, k =3) + s(", covariates[[i]], ", k = 3)")
+      smooth_terms <- paste("s(", combinations[[i]], ", k = 3)", collapse = " + ")
+      formula_str <- paste("Y_rec ~ ", smooth_terms)
+      predictions <- numeric(nrow(dat))
+      n_year <- length(unique(dat$year))
+      # Loop over each observation
+      for (j in jstart:n_year) {
+        train_index <- setdiff(jstart:n_year, j)  # All indices except the j-th
+        test_index <- j                 # The j-th index
+        
+        # Fit model on n-1 observations
+        gam_model <- gam(as.formula(formula_str),
+                         # weights = number_cwt_estimated,
+                         data = dat[which(dat$year != unique(dat$year)[j]), ])
+        
+        # Predict the excluded observation
+        predictions[which(dat$year == unique(dat$year)[j])] <- predict(gam_model, newdata = dat[which(dat$year == unique(dat$year)[j]), ])
+      }
+      
+      # re-fit the model
+      gam_model <- gam(as.formula(formula_str),
+                       data = dat)
+      predict_mod <- predict(gam_model)
+      # keep in mind RMSE is weird for binomial things
+      rmse_loo <- sqrt(mean((dat$Y_rec - predictions)^2, na.rm=T))
+      rmse <- sqrt(mean((dat$Y_rec -  predict_mod)^2, na.rm=T))
+      r2<-summary(gam_model)$r.sq
+      dev.expl<-summary(gam_model)$dev.expl
+      # Extract variable names
+      var_names <- gsub("s\\(([^,]+),.*", "\\1", combinations[[i]])
+      # Store results with variable names padded to ensure there are always 3 columns
+      padded_vars <- c(var_names, rep(NA, 4 - length(var_names)))
+      
+      # Store results
+      models[[i]] <- gam_model
+      results_temp<- rbind(results_temp,data.frame(
+        ModelID = i,
+        AIC = AIC(gam_model),
+        RMSE_loo = round(rmse_loo,3),
+        RMSE = round(rmse,3),
+        rsq_full=round(r2,2),
+        dev.ex=round(dev.expl,4),
+        firstyear=firstyear[k],
+        lastyear=lastyear,
+        var1 = padded_vars[1],
+        var2 = padded_vars[2],
+        var3 = padded_vars[3],
+        var4 = padded_vars[4]
+        
+        
+      ))
+      
+      predicted_temp <- rbind(predicted_temp, data.frame(
+        ModelID = i,
+        pred=predictions[jstart:n_year],
+        year=unique(dat$year)[jstart:n_year],
+        var1 = padded_vars[1],
+        var2 = padded_vars[2],
+        var3 = padded_vars[3],
+        var3 = padded_vars[4]
+        
+      ))
+      #saving the one step ahead predictions
+      print(i)
+
+    }
+    results<- rbind(results,results_temp)
+    predicted<- rbind(predicted,predicted_temp)
+  }
+    results_output <- list("results" = results, "predicted" = predicted)
+  return(results_output)
+}
+
+
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018)
+yt_selection_rw <- data.frame(yt_results_rw$results)
 #### Yellowtail ####
 
 yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment))
@@ -228,10 +320,10 @@ yt_selection <- data.frame(yt_results$results)
 yt_predicted <- yt_results$predicted
 yt_baseline <- 0.4
 yt_model <- gam(Y_rec~1,data=yt_dat)
-yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model)
+yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model,yt_covariates)
 
 yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
-yt_marginals$total_aic <- apply(marginals[,c("aic_12", "aic_23")], 1, mean)
+yt_marginals$total_aic <- apply(yt_marginals[,c("aic_12", "aic_23")], 1, mean)
 
 gam_loo_table <- dplyr::arrange(yt_marginals, rmse_23)%>%
   dplyr::select(cov, rmse_23, total_aic)%>%
@@ -247,9 +339,39 @@ marginal <- ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
   theme_classic()
 marginal 
 
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2005)
+yt_selection_rw <- data.frame(yt_results_rw$results)
+first_years<-unique(yt_selection_rw$firstyear)
+last_years<-unique(yt_selection_rw$lastyear)
+
+marginal_rw<-data.frame()
+for(i in 1:length(first_years)){
+ dat<-yt_selection_rw%>%filter(firstyear==first_years[i]) 
+ marg_temp <- RMSE_improvement(dat,yt_baseline,yt_model,yt_covariates)%>%
+   mutate(first_year=first_years[i],last_year=last_years[i])
+ marginal_rw<-rbind(marginal_rw, marg_temp)
+}
+
+results_rolling<-marginal_rw%>%mutate(range=paste(first_year, "-",last_year))
+
+rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23)) + 
+  xlab("Time Period")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Rolling Window")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
+rollingplot
+
+
+yt_predicted_rw <- yt_results_rw$predicted
+yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model,yt_covariates)
+
+
 ### Calculating Relative Variable Importance ###
 
 # Create a baseline model with only the intercept
 
-hk_combinations <- combinations(hk_dat)
-hk_results<-model_fit(hk_combinations[1:20], hk_dat)
+#hk_combinations <- combinations(hk_dat)
+#hk_results<-model_fit(hk_combinations[1:20], hk_dat)
