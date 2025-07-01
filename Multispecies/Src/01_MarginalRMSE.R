@@ -32,7 +32,7 @@ ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDAR
   filter(type=="Main_RecrDev"&year>1993)
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
-  select(-X)%>%
+  select(-X, year.1)%>%
   filter(type=="Main_RecrDev"&year>1993)
 
 #### Functions ####
@@ -307,9 +307,6 @@ rw_model_fit <- function(combinations, dataset,yrlast){
   return(results_output)
 }
 
-
-yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018)
-yt_selection_rw <- data.frame(yt_results_rw$results)
 #### Yellowtail ####
 
 yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment))
@@ -331,15 +328,16 @@ gam_loo_table <- dplyr::arrange(yt_marginals, rmse_23)%>%
 gam_loo_table[is.na(gam_loo_table)] <-"No"
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
 
-marginal <- ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
   geom_bar(stat = "identity") +
   coord_flip() +  # Flip the axes to make a horizontal bar graph
-  labs(y = "Marginal Improvement RMSE", x = "Predictor")+
-  scale_fill_manual(values=c('grey',cols[3]))+
+  labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
   theme_classic()
 marginal 
 
-yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2005)
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018)
 yt_selection_rw <- data.frame(yt_results_rw$results)
 first_years<-unique(yt_selection_rw$firstyear)
 last_years<-unique(yt_selection_rw$lastyear)
@@ -365,8 +363,61 @@ rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23))
 rollingplot
 
 
-yt_predicted_rw <- yt_results_rw$predicted
-yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model,yt_covariates)
+#### Sablfish ####
+
+sb_combinations_results <- combinations(sb_dat)
+sb_combinations<- sb_combinations_results$combinations
+sb_covariates<- sb_combinations_results$covariates
+sb_results<- model_fit(sb_combinations, sb_dat)
+sb_selection <- data.frame(sb_results$results)
+sb_predicted <- sb_results$predicted
+sb_baseline <- 0.4
+sb_model <- gam(Y_rec~1,data=sb_dat)
+sb_marginals <- RMSE_improvement(sb_selection,sb_baseline,sb_model,sb_covariates)
+
+sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_12","rmse_23")], 1, mean)
+sb_marginals$total_aic <- apply(sb_marginals[,c("aic_12", "aic_23")], 1, mean)
+
+gam_loo_table <- dplyr::arrange(sb_marginals, rmse_23)%>%
+  dplyr::select(cov, rmse_23, total_aic)%>%
+  mutate(cv="LOO",model="GAM")
+gam_loo_table[is.na(gam_loo_table)] <-"No"
+cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
+
+marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip the axes to make a horizontal bar graph
+  labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  theme_classic()
+marginal 
+
+sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2018)
+sb_selection_rw <- data.frame(sb_results_rw$results)
+first_years<-unique(sb_selection_rw$firstyear)
+last_years<-unique(sb_selection_rw$lastyear)
+
+marginal_rw<-data.frame()
+for(i in 1:length(first_years)){
+  dat<-sb_selection_rw%>%filter(firstyear==first_years[i]) 
+  marg_temp <- RMSE_improvement(dat,sb_baseline,sb_model,sb_covariates)%>%
+    mutate(first_year=first_years[i],last_year=last_years[i])
+  marginal_rw<-rbind(marginal_rw, marg_temp)
+}
+
+results_rolling<-marginal_rw%>%mutate(range=paste(first_year, "-",last_year))
+
+rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23)) + 
+  xlab("Time Period")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Rolling Window")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
+rollingplot
+
 
 
 ### Calculating Relative Variable Importance ###
