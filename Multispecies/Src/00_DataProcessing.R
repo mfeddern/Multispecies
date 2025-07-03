@@ -74,4 +74,4 @@ sb_env_st <-sb_recdev%>%
   cbind(year = sb_recdev$year)
 sb_dat_st <-data.frame(sb_env_st)%>%
   left_join(data.frame(sb_recdev%>%select(type, year, Y_rec,sd)))
-write.csv(ps_dat_st,"Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv")
+write.csv(sb_dat_st,"Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv")

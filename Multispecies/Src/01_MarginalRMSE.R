@@ -21,23 +21,23 @@ library(ggpubr)
 #### Reading in the data ####
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
-  filter(Datatreatment=="Expanded PacFIN"&type=="Main_RecrDev"&year>1993)
+  filter(Datatreatment=="2025 Final"&type=="Main"&year>1993)
   
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
   filter(type=="Main_RecrDev"&year>1993)
 
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
-  select(-X)%>%
+  select(-c(X, year.1))%>%
   filter(type=="Main_RecrDev"&year>1993)
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
-  select(-X, year.1)%>%
+  select(-c(X))%>%
   filter(type=="Main_RecrDev"&year>1993)
 
 #### Functions ####
-combinations <- function(data){
-threshold <- 0.3 #0.95#0.3 #assiging a threshold of correlation to filter out 
+combinations <- function(data,threshold,maxcovar){
+#threshold <- corr_threshold #0.95#0.3 #assiging a threshold of correlation to filter out 
 yt_env <- data%>%select(-c(Y_rec, sd, type))
 yt_env <- yt_env[complete.cases(yt_env), ] %>% 
   dplyr::select(!any_of( c('year'))) # getting environmental data
@@ -54,7 +54,7 @@ for(i in 1:nrow(corrvar2)){
 
 ##### Models to Fit #####
 covariates <- names(yt_env)
-maxcovar <- 4 #max number of covars for a given model
+# <- 4 #max number of covars for a given model
 combinations <- lapply(1:maxcovar, function(i) {
   combn(covariates, i, simplify = FALSE)
 })
@@ -156,7 +156,6 @@ model_fit <- function(combinations, dat){
   return(results_output)
 }
 RMSE_improvement <-function(results,baseline_rmse,gam_model, covariates){
-  baseline_rmse <-0.4
   
   # we can calculate the marginal improvement for each covariate
   results$n_cov <- ifelse(!is.na(results$var1), 1, 0) + ifelse(!is.na(results$var2), 1, 0) +
@@ -217,13 +216,13 @@ RMSE_improvement <-function(results,baseline_rmse,gam_model, covariates){
   }
   return(marginals)
 }
-rw_model_fit <- function(combinations, dataset,yrlast){
+rw_model_fit <- function(combinations, dataset,yrlast, window){
   models <- list()
   results <- data.frame()
   predicted<-data.frame()
-
+  jstart<-1
   #n_year <-lengthwindow
-  length_window<-10
+  length_window<-window
   firstyear<-1994:(yrlast-length_window)
   for(k in jstart:length(firstyear)){
     lastyear=firstyear[k]+length_window
@@ -306,30 +305,38 @@ rw_model_fit <- function(combinations, dataset,yrlast){
     results_output <- list("results" = results, "predicted" = predicted)
   return(results_output)
 }
+null_RMSE <-function(dat){
+  null<-dat%>%mutate(sr_null = 0)
+  sqerror<-(null$sr_null-null$Y_rec)^2
+  rmse_sr_full <- sqrt(mean(sqerror, na.rm=T))
+  return(rmse_sr_full)
+}
 
 #### Yellowtail ####
 
-yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment))
+yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), 0.5,3)
 yt_combinations<- yt_combinations_results$combinations
 yt_covariates<- yt_combinations_results$covariates
 yt_results<- model_fit(yt_combinations, yt_dat)
 yt_selection <- data.frame(yt_results$results)
 yt_predicted <- yt_results$predicted
-yt_baseline <- 0.4
+yt_baseline <- null_RMSE(yt_dat)
 yt_model <- gam(Y_rec~1,data=yt_dat)
 yt_marginals <- RMSE_improvement(yt_selection,yt_baseline,yt_model,yt_covariates)
 
-yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
+write_rds(yt_selection, "Output/Data/yt_selection.rds")
+
+yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
 yt_marginals$total_aic <- apply(yt_marginals[,c("aic_12", "aic_23")], 1, mean)
 
-gam_loo_table <- dplyr::arrange(yt_marginals, rmse_23)%>%
-  dplyr::select(cov, rmse_23, total_aic)%>%
+gam_loo_table <- dplyr::arrange(yt_marginals, rmse_01)%>%
+  dplyr::select(cov, rmse_01, total_aic)%>%
   mutate(cv="LOO",model="GAM")
 gam_loo_table[is.na(gam_loo_table)] <-"No"
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
 
 marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
-  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_01,fill=rmse_01)) +
   geom_bar(stat = "identity") +
   coord_flip() +  # Flip the axes to make a horizontal bar graph
   labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
@@ -337,11 +344,11 @@ marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
   theme_classic()
 marginal 
 
-yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018)
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018, 15)
 yt_selection_rw <- data.frame(yt_results_rw$results)
 first_years<-unique(yt_selection_rw$firstyear)
 last_years<-unique(yt_selection_rw$lastyear)
-
+write_rds(yt_selection_rw, "Output/Data/yt_selection_rw15.rds")
 marginal_rw<-data.frame()
 for(i in 1:length(first_years)){
  dat<-yt_selection_rw%>%filter(firstyear==first_years[i]) 
@@ -363,40 +370,43 @@ rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23))
 rollingplot
 
 
-#### Sablfish ####
+#### Sablefish ####
 
-sb_combinations_results <- combinations(sb_dat)
+sb_combinations_results <- combinations(sb_dat,0.5,3)
 sb_combinations<- sb_combinations_results$combinations
 sb_covariates<- sb_combinations_results$covariates
 sb_results<- model_fit(sb_combinations, sb_dat)
 sb_selection <- data.frame(sb_results$results)
 sb_predicted <- sb_results$predicted
-sb_baseline <- 0.4
+sb_baseline <- null_RMSE(sb_dat)
 sb_model <- gam(Y_rec~1,data=sb_dat)
 sb_marginals <- RMSE_improvement(sb_selection,sb_baseline,sb_model,sb_covariates)
 
-sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_12","rmse_23")], 1, mean)
-sb_marginals$total_aic <- apply(sb_marginals[,c("aic_12", "aic_23")], 1, mean)
+sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
+sb_marginals$total_aic <- apply(sb_marginals[,c("aic_01","aic_12", "aic_23")], 1, mean)
 
-gam_loo_table <- dplyr::arrange(sb_marginals, rmse_23)%>%
-  dplyr::select(cov, rmse_23, total_aic)%>%
+write_rds(sb_selection, "Output/Data/sb_selection.rds")
+
+gam_loo_table <- dplyr::arrange(sb_marginals, rmse_01)%>%
+  dplyr::select(cov, rmse_01, total_aic)%>%
   mutate(cv="LOO",model="GAM")
 gam_loo_table[is.na(gam_loo_table)] <-"No"
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
 
 marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
-  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_01,fill=rmse_01)) +
   geom_bar(stat = "identity") +
   coord_flip() +  # Flip the axes to make a horizontal bar graph
   labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
-  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  scale_fill_gradient2(low = "white", high = "Darkgreen")+#, midpoint = 0.2) +
   theme_classic()
 marginal 
 
-sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2018)
+sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2020, 15)
 sb_selection_rw <- data.frame(sb_results_rw$results)
 first_years<-unique(sb_selection_rw$firstyear)
 last_years<-unique(sb_selection_rw$lastyear)
+write_rds(sb_selection_rw, "Output/Data/sb_selection_rw15.rds")
 
 marginal_rw<-data.frame()
 for(i in 1:length(first_years)){
@@ -412,17 +422,126 @@ rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23))
   xlab("Time Period")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
   ylab("Oceanographic Conditions")+
-  ggtitle("Rolling Window")+
+  ggtitle("Sablefish")+
   geom_tile()+
   theme_bw()+
   theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
 rollingplot
 
 
+#### Petrale Sole ####
 
-### Calculating Relative Variable Importance ###
+ps_combinations_results <- combinations(ps_dat,0.5,3)
+ps_combinations<- ps_combinations_results$combinations
+ps_covariates<- ps_combinations_results$covariates
+ps_results<- model_fit(ps_combinations, ps_dat)
+ps_selection <- data.frame(ps_results$results)
+ps_predicted <- ps_results$predicted
+ps_baseline <-  null_RMSE(ps_dat)
+ps_model <- gam(Y_rec~1,data=ps_dat)
+ps_marginals <- RMSE_improvement(ps_selection,ps_baseline,ps_model,ps_covariates)
 
-# Create a baseline model with only the intercept
+ps_marginals$total_rmse <- apply(ps_marginals[,c("rmse_12","rmse_23")], 1, mean)
+ps_marginals$total_aic <- apply(ps_marginals[,c("aic_12", "aic_23")], 1, mean)
 
-#hk_combinations <- combinations(hk_dat)
-#hk_results<-model_fit(hk_combinations[1:20], hk_dat)
+write_rds(ps_selection, "Output/Data/ps_selection.rds")
+
+gam_loo_table <- dplyr::arrange(ps_marginals, rmse_23)%>%
+  dplyr::select(cov, rmse_23, total_aic)%>%
+  mutate(cv="LOO",model="GAM")
+gam_loo_table[is.na(gam_loo_table)] <-"No"
+
+
+marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip the axes to make a horizontal bar graph
+  labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
+  scale_fill_gradient2(low = "white", high = "Darkgreen")+#, midpoint = 0.2) +
+  theme_classic()
+marginal 
+
+ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,2020, 15)
+ps_selection_rw <- data.frame(ps_results_rw$results)
+first_years<-unique(ps_selection_rw$firstyear)
+last_years<-unique(ps_selection_rw$lastyear)
+write_rds(ps_selection_rw, "Output/Data/ps_selection_rw15.rds")
+
+marginal_rw<-data.frame()
+for(i in 1:length(first_years)){
+  dat<-ps_selection_rw%>%filter(firstyear==first_years[i]) 
+  marg_temp <- RMSE_improvement(dat,ps_baseline,ps_model,ps_covariates)%>%
+    mutate(first_year=first_years[i],last_year=last_years[i])
+  marginal_rw<-rbind(marginal_rw, marg_temp)
+}
+
+results_rolling<-marginal_rw%>%mutate(range=paste(first_year, "-",last_year))
+
+rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23)) + 
+  xlab("Time Period")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Petrale Sole")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
+rollingplot
+
+#### Hake ####
+
+hk_combinations_results <- combinations(hk_dat,0.5,3)
+hk_combinations<- hk_combinations_results$combinations
+hk_covariates<- hk_combinations_results$covariates
+hk_results<- model_fit(hk_combinations, hk_dat)
+hk_selection <- data.frame(hk_results$results)
+hk_predicted <- hk_results$predicted
+hk_baseline <-  null_RMSE(ps_dat)
+hk_model <- gam(Y_rec~1,data=hk_dat)
+hk_marginals <- RMSE_improvement(hk_selection,hk_baseline,hk_model,hk_covariates)
+
+hk_marginals$total_rmse <- apply(hk_marginals[,c("rmse_12","rmse_23")], 1, mean)
+hk_marginals$total_aic <- apply(hk_marginals[,c("aic_12", "aic_23")], 1, mean)
+
+write_rds(hk_selection, "Output/Data/hk_selection.rds")
+
+gam_loo_table <- dplyr::arrange(hk_marginals, rmse_23)%>%
+  dplyr::select(cov, rmse_23, total_aic)%>%
+  mutate(cv="LOO",model="GAM")
+gam_loo_table[is.na(gam_loo_table)] <-"No"
+
+
+marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
+  ggplot(gam_loo_table, aes(x =cov, y = rmse_23,fill=rmse_23)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +  # Flip the axes to make a horizontal bar graph
+  labs(y = "Marginal Improvement RMSE Full TS", x = "Predictor")+
+  scale_fill_gradient2(low = "white", high = "Darkgreen")+#, midpoint = 0.2) +
+  theme_classic()
+marginal 
+
+hk_results_rw<- rw_model_fit(hk_combinations, hk_dat,2020, 15)
+hk_selection_rw <- data.frame(hk_results_rw$results)
+first_years<-unique(hk_selection_rw$firstyear)
+last_years<-unique(hk_selection_rw$lastyear)
+write_rds(hk_selection_rw, "Output/Data/hk_selection_rw15.rds")
+
+marginal_rw<-data.frame()
+for(i in 1:length(first_years)){
+  dat<-hk_selection_rw%>%filter(firstyear==first_years[i]) 
+  marg_temp <- RMSE_improvement(dat,hk_baseline,hk_model,hk_covariates)%>%
+    mutate(first_year=first_years[i],last_year=last_years[i])
+  marginal_rw<-rbind(marginal_rw, marg_temp)
+}
+
+results_rolling<-marginal_rw%>%mutate(range=paste(first_year, "-",last_year))
+
+rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23)) + 
+  xlab("Time Period")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Petrale Sole")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
+rollingplot
+
