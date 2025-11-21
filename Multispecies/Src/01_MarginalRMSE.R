@@ -36,6 +36,7 @@ sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STA
   filter(type=="Main_RecrDev"&year>1993)
 
 #### Functions ####
+threshold<-3
 combinations <- function(data,threshold,maxcovar){
 #threshold <- corr_threshold #0.95#0.3 #assiging a threshold of correlation to filter out 
 yt_env <- data%>%select(-c(Y_rec, sd, type))
@@ -116,7 +117,11 @@ model_fit <- function(combinations, dat){
     var_names <- gsub("s\\(([^,]+),.*", "\\1", combinations[[i]])
     # Store results with variable names padded to ensure there are always 3 columns
     padded_vars <- c(var_names, rep(NA, 4 - length(var_names)))
-    
+    TP= sum(dat$Y_rec >0 & predictions >0)
+    TN= sum(dat$Y_rec <0 & predictions <0)
+    FP= sum(dat$Y_rec >0 & predictions <0)
+    FN= sum(dat$Y_rec <0 & predictions >0)
+    Hit <- (TP + TN)/((TP+TN)+(FP+FN))
     # Store results
     models[[i]] <- gam_model
     results <- rbind(results, data.frame(
@@ -126,6 +131,7 @@ model_fit <- function(combinations, dat){
       RMSE = round(rmse,3),
       rsq_full=round(r2,2),
       dev.ex=round(dev.expl,4),
+      Hit=Hit,
       #rmse_imp=(rmse_sr_full-rmse)/rmse_sr_full, 
       #rmse_ratio=rmse/rmse_sr_full,
       #AUC = auc,
@@ -227,10 +233,10 @@ rw_model_fit <- function(combinations, dataset,yrlast, window){
   for(k in jstart:length(firstyear)){
     lastyear=firstyear[k]+length_window
     dat <- dataset%>%filter(year>=firstyear[k]&year<=lastyear)
-    models <- list()
     jstart<-1
     results_temp <- data.frame()
     predicted_temp <- data.frame()
+    models_temp <- list()
     for (i in seq_along(combinations)) {
       # k represent the number of parameters / knots estimating function at, should be small
       #smooth_terms <- paste("s( total_release, k =3) + s(", covariates[[i]], ", k = 3)")
@@ -267,7 +273,7 @@ rw_model_fit <- function(combinations, dataset,yrlast, window){
       padded_vars <- c(var_names, rep(NA, 4 - length(var_names)))
       
       # Store results
-      models[[i]] <- gam_model
+      models_temp[[i]] <- gam_model
       results_temp<- rbind(results_temp,data.frame(
         ModelID = i,
         AIC = AIC(gam_model),
@@ -301,9 +307,11 @@ rw_model_fit <- function(combinations, dataset,yrlast, window){
     }
     results<- rbind(results,results_temp)
     predicted<- rbind(predicted,predicted_temp)
+    models <- list(models, models_temp)
   }
-    results_output <- list("results" = results, "predicted" = predicted)
+    results_output <- list("results" = results, "predicted" = predicted, "model"=models)
   return(results_output)
+  
 }
 null_RMSE <-function(dat){
   null<-dat%>%mutate(sr_null = 0)
@@ -345,6 +353,9 @@ marginal <- #ggplot(gam_loo_table, aes(x = reorder(cov,rmse_23), y = rmse_23)) +
 marginal 
 
 yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018, 15)
+write_rds(yt_results_rw, "Output/Data/yt_results_rw.rds")
+
+
 yt_selection_rw <- data.frame(yt_results_rw$results)
 first_years<-unique(yt_selection_rw$firstyear)
 last_years<-unique(yt_selection_rw$lastyear)
@@ -369,6 +380,14 @@ rollingplot<- ggplot(results_rolling, aes(as.factor(range), cov, fill= rmse_23))
   theme(axis.text = element_text(size = 11),plot.title = element_text(hjust = 0.5))
 rollingplot
 
+for(i in 1:length(first_years)){
+  dat<-yt_selection_rw%>%filter(firstyear==first_years[i]) 
+  marg_temp <- RMSE_improvement(dat,yt_baseline,yt_model,yt_covariates)%>%
+    mutate(first_year=first_years[i],last_year=last_years[i])
+  marginal_rw<-rbind(marginal_rw, marg_temp)
+}
+
+summary(yt_results_rw$model[[1]])
 
 #### Sablefish ####
 
