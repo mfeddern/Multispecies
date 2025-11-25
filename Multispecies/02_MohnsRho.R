@@ -23,7 +23,6 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
 #  filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1993)
-  
 yt_loo <- readRDS("Output/Data/yt_selection.rds")
 
 ### Functions ###
@@ -50,7 +49,7 @@ for(j in 1:numvar){ #loop over var
 #this section is getting the calculations for Mohns
 
 }
-  xyy<-data.frame(mohns=temp_edfs-full_edfs, termyr=data$year[(nyears-i)])
+  xyy<-data.frame(mohns=((temp_edfs-full_edfs)/full_edfs), termyr=data$year[(nyears-i)])
   mohns_temp<- cbind(xyy, row.names(xyy))
   mohns<-rbind(mohns_temp,mohns)
   #ts_smooths[[i]]<-ts_smooths_temp
@@ -77,7 +76,24 @@ ts_smooths <- data.frame()
 mohns <- data.frame()
 results <- FunctionalRelationships(yt_dat, 15)
 
+ggplot(data=results[[2]],aes(x=termyr, y=mohns))+ #you could add observations onto this to show contrast
+  facet_wrap(~row.names(xyy))+
+  geom_point()
 
-ggplot(data=ts_smooths,aes(x=x, y=fit))+ #you could add observations onto this to show contrast
+
+mohns15<- data.frame(results[[2]])%>%
+  group_by(row.names.xyy.)%>%
+  summarize(mohns15=sum(mohns)/length(unique(termyr)))
+
+
+plot.dat<-yt_dat%>%select(year,Y_rec,unique(results[[1]]$var))%>%
+  pivot_longer(cols=c(unique(results[[1]]$var)))%>%
+  rename(var=name)
+
+ggplot()+ #you could add observations onto this to show contrast
   facet_wrap(~var)+
-  geom_line(aes(group=termyr,col=termyr))
+  geom_line(data=data.frame(results[[1]]),aes(x=x, y=fit,group=termyr,col=termyr))+
+  geom_point(data=plot.dat, aes( label=year,y=Y_rec, x=value, col=year))+
+  geom_text(data=plot.dat, aes( label=year,y=Y_rec, x=value,col=year),nudge_y = 0.05)+
+  xlim(c(-3,3))+
+  theme_classic()
