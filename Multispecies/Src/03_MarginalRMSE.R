@@ -102,12 +102,16 @@ sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
 
 yt <- readRDS("Output/Data/yt_model_fits.rds")
+
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
 yt_LFO10<-data.frame(yt[["LFO10"]][["results"]])
-
+yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
+  select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
+  filter(type=="Main")%>%
+  filter(Datatreatment=="2025 Final"&year>1993)
 #### Yellowtail ####
-
+yt_covariates<-colnames(yt_dat%>%select(-c(Y_rec, sd, type, Datatreatment, year)))
 yt_baseline <-  null_RMSE(yt_dat)
 yt_model <- gam(Y_rec~1,data=yt_dat)
 yt_marginals <- RMSE_improvement(yt_loo,yt_baseline,yt_model,yt_covariates)%>%
@@ -116,12 +120,12 @@ yt_marginals <- RMSE_improvement(yt_loo,yt_baseline,yt_model,yt_covariates)%>%
             mutate(species=yt_LFO5$species[1],RMSE="LFO 5"))%>%
   add_row(RMSE_improvement(yt_LFO10,yt_baseline,yt_model,yt_covariates)%>%
             mutate(species=yt_LFO10$species[1],RMSE="LFO 10"))
-
 yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
 yt_marginals$total_aic <- apply(yt_marginals[,c("aic_12", "aic_23")], 1, mean)
 
 yt_marginals<- yt_marginals%>%mutate(RMSEnull=yt_baseline)
 #### Sablefish ####
+sb_covariates<-colnames(sb_dat%>%select(-c(Y_rec, sd, type,  year)))
 
 sb_baseline <-  null_RMSE(sb_dat)
 sb_model <- gam(Y_rec~1,data=sb_dat)
@@ -137,7 +141,7 @@ sb_marginals$total_aic <- apply(sb_marginals[,c("aic_12", "aic_23")], 1, mean)
 
 sb_marginals<- sb_marginals%>%mutate(RMSEnull=sb_baseline)
 #### Petrale Sole ####
-
+ps_covariates<-colnames(ps_dat%>%select(-c(Y_rec, sd, type,  year)))
 ps_baseline <-  null_RMSE(ps_dat)
 ps_model <- gam(Y_rec~1,data=ps_dat)
 ps_marginals <- RMSE_improvement(ps_loo,ps_baseline,ps_model,ps_covariates)%>%

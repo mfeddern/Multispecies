@@ -448,6 +448,17 @@ yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_res
 
 write_rds(yt_results, "Output/Data/yt_model_fits.rds")
 
+#single variable for Mohns and Marginal
+
+yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), 0.5,1)
+yt_combinations<- yt_combinations_results$combinations
+yt_covariates<- yt_combinations_results$covariates
+yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
+yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
+yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
+yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo)
+write_rds(yt_results, "Output/Data/yt_model_single_fits.rds")
+
 #### Sablefish ####
 
 sb_combinations_results <- combinations(sb_dat,0.5,3)
@@ -458,8 +469,8 @@ sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Sablefish")
 sb_results_loo<- model_fit(sb_combinations, sb_dat,"Sablefish")
 sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2020, 15,"Sablefish")
 sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo,"RW" = sb_results_rw)
-
-write_rds(sb_results, "Output/Data/sb_model_fits.rds")
+#write_rds(sb_results, "Output/Data/sb_model_single_fits.rds")
+#write_rds(sb_results, "Output/Data/sb_model_fits.rds")
 
 
 #### Petrale Sole ####
@@ -472,6 +483,6 @@ ps_results_10<- LFO(ps_dat,ps_combinations, 10,"Petrale Sole")
 ps_results_loo<- model_fit(ps_combinations, ps_dat,"Petrale Sole")
 ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,2020, 15,"Petrale Sole")
 ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo,"RW" = ps_results_rw)
-
-write_rds(ps_results, "Output/Data/ps_model_fits.rds")
+#write_rds(ps_results, "Output/Data/ps_model_single_fits.rds")
+#write_rds(ps_results, "Output/Data/ps_model_fits.rds")
 
