@@ -21,7 +21,7 @@ library(ggpubr)
 #### Reading in the data ####
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
-#  filter(type=="Main")%>%
+  filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1993)
 yt <- readRDS("Output/Data/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
@@ -116,17 +116,17 @@ single_covs<- function(models, data){
 
 #### Best Models ####
 ##### Yellowtail #####
-modtemp <- arrange(yt_lfo5,RMSE)[1,]%>%#select best model
-  select(var1, var2, var3, var4)
-#modtemp <- arrange(yt_loo,RMSE_loo)[1,]%>%#select best model
-#  select(var1, var2, var3, var4) #select variables. Way to do this with all 4 and filter out 4th when it isn't used?
+#modtemp <- arrange(yt_lfo5,RMSE)[1,]%>%#select best model
+#  select(var1, var2, var3, var4)
+modtemp <- arrange(yt_loo,RMSE_loo)[1,]%>%#select best model
+  select(var1, var2, var3, var4) #select variables. Way to do this with all 4 and filter out 4th when it isn't used?
 numvar<-sum(!is.na(modtemp))
 mod<- modtemp [1:numvar]
 smooth_terms <- paste("s(",mod, ", k = 3)", collapse = " + ")
 formula_str <- paste("Y_rec ~ ", gsub(" ", "",smooth_terms))
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_yt <- FunctionalRelationships(yt_dat, 15,formula_str,1)
+results_yt <- FunctionalRelationships(yt_dat, 15,formula_str,3)
 model<-gam(as.formula(formula_str), data=yt_dat)
 full_edfs<-summary(model)$s.table[, "edf"]
 nyears<-length(yt_dat$year)
@@ -146,8 +146,7 @@ formulas<-list()
 res<-data.frame()
 mohn<-data.frame()
 #rec<-single_covs(sb_loo,sb_dat)
-
-modtemp <- arrange(sb_lfo5,RMSE)[1,]%>%#select best model
+modtemp <- arrange(sb_loo,RMSE_loo)[1,]%>%#select best model
   select(var1, var2, var3, var4) #select variables. Way to do this with all 4 and filter out 4th when it isn't used?
 numvar<-sum(!is.na(modtemp))
 mod<- modtemp [1:numvar]
@@ -159,7 +158,7 @@ nyears<-length(sb_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_sb <- FunctionalRelationships(sb_dat, 15,formula_str,1)
+results_sb <- FunctionalRelationships(sb_dat, 15,formula_str,3)
 
 mohns_sb<- results_sb[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -171,7 +170,7 @@ plot_dat_sb<-sb_dat%>%select(year,Y_rec,unique(results_sb[[1]]$var))%>%
   mutate(Species="Sablefish")
 
 ##### Petrale Sole #####
-modtemp <- arrange(ps_lfo5,RMSE)[1,]%>%#select best model
+modtemp <- arrange(ps_loo,RMSE_loo)[1,]%>%#select best model
   select(var1, var2, var3, var4) #select variables. Way to do this with all 4 and filter out 4th when it isn't used?
 numvar<-sum(!is.na(modtemp))
 mod<- modtemp [1:numvar]
@@ -183,7 +182,7 @@ nyears<-length(ps_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_ps<- FunctionalRelationships(ps_dat, 15,formula_str,1)
+results_ps<- FunctionalRelationships(ps_dat, 15,formula_str,3)
 
 mohns_ps<- results_ps[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -209,8 +208,8 @@ mohns_yt_plot<-ggplot(data=mohns_yt,aes(x=termyr, y=mohns))+ #you could add obse
   geom_point(aes(col=variable))+
   ylab("Mohn's Rho")+
   xlab("Terminal Year")+
-  ylim(c(-0.1, 0.8))+
- # ylim(c(-0.5, 0.2))+
+  #  ylim(c(-0.5, 0.8))+
+ ylim(c(-0.5, 0.2))+
   ggtitle("Yellowtail")+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -219,8 +218,8 @@ mohns_sb_plot<-ggplot(data=mohns_sb,aes(x=termyr, y=mohns))+ #you could add obse
   geom_point(aes(col=variable))+
   ylab("Mohn's Rho")+
   xlab("Terminal Year")+
-  ylim(c(-0.1, 0.8))+
-  #ylim(c(-0.5, 0.2))+
+  #ylim(c(-0.5, 0.8))+
+  ylim(c(-0.5, 0.2))+
   ggtitle("Sablefish")+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -229,7 +228,7 @@ mohns_ps_plot<-ggplot(data=mohns_ps,aes(x=termyr, y=mohns))+ #you could add obse
   geom_point(aes(col=variable))+
   ylab("Mohn's Rho")+
   xlab("Terminal Year")+
-  ylim(c(-0.1, 0.8))+
+  ylim(c(-0.5, 0.2))+
   ggtitle("Petrale Sole")+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
@@ -269,14 +268,14 @@ yt_best <- ggarrange(mohns_yt_plot,yt_var, ncol = 2, nrow = 1)
 sb_best <- ggarrange(mohns_sb_plot,sb_var, ncol = 2, nrow = 1)
 ps_best <- ggarrange(mohns_ps_plot,ps_var, ncol = 2, nrow = 1)
 
-all_best_lfo5 <- ggarrange(yt_best, sb_best, ps_best, ncol = 1, nrow = 3)
+all_best_loo <- ggarrange(yt_best, sb_best, ps_best, ncol = 1, nrow = 3)
 
-pdf(file = "Output/Figures/all_best_lfo5.pdf", width = 11, height = 8)
-all_best_lfo5
+pdf(file = "Output/Figures/all_best_loo.pdf", width = 11, height = 8)
+all_best_loo
 dev.off()
 
-png(file = "Output/Figures/all_best_lfo5.png",width = 1100, height = 800, res = 100)
-all_best_lfo5
+png(file = "Output/Figures/all_best_loo.png",width = 1100, height = 800, res = 100)
+all_best_loo
 dev.off()
 
 
@@ -315,8 +314,8 @@ results_single_sb<- single_covs(sb_single_loo,sb_dat)
 mohns_sb<- results_single_sb[[2]]%>%
   mutate(Species="Sablefish")
 
-plot.dat<-sb_dat%>%select(year,Y_rec,unique(rec_sb[[1]]$var))%>%
-  pivot_longer(cols=c(unique(rec_sb[[1]]$var)))%>%
+plot.dat<-sb_dat%>%select(year,Y_rec,unique(results_single_sb[[1]]$var))%>%
+  pivot_longer(cols=c(unique(results_single_sb[[1]]$var)))%>%
   rename(var=name)
 
 mohns10sb<- mohns_sb%>%

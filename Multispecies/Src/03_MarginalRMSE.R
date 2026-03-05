@@ -110,6 +110,7 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1993)
+
 #### Yellowtail ####
 yt_covariates<-colnames(yt_dat%>%select(-c(Y_rec, sd, type, Datatreatment, year)))
 yt_baseline <-  null_RMSE(yt_dat)
@@ -123,7 +124,13 @@ yt_marginals <- RMSE_improvement(yt_loo,yt_baseline,yt_model,yt_covariates)%>%
 yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
 yt_marginals$total_aic <- apply(yt_marginals[,c("aic_12", "aic_23")], 1, mean)
 
-yt_marginals<- yt_marginals%>%mutate(RMSEnull=yt_baseline)
+yt_marginals<- yt_marginals%>%mutate(RMSEnull=yt_baseline)%>%
+  dplyr::mutate(total_rmse_st=total_rmse/3)
+relevel_yt_loo<-yt_marginals%>%
+  filter(RMSE=="LOO")%>%
+  arrange(total_rmse_st)
+  
+yt_marginals$cov <- factor(yt_marginals$cov, levels =relevel_yt_loo$cov)
 #### Sablefish ####
 sb_covariates<-colnames(sb_dat%>%select(-c(Y_rec, sd, type,  year)))
 
@@ -139,7 +146,16 @@ sb_marginals <- RMSE_improvement(sb_loo,sb_baseline,sb_model,sb_covariates)%>%
 sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_12","rmse_23")], 1, mean)
 sb_marginals$total_aic <- apply(sb_marginals[,c("aic_12", "aic_23")], 1, mean)
 
-sb_marginals<- sb_marginals%>%mutate(RMSEnull=sb_baseline)
+sb_marginals<- sb_marginals%>%mutate(RMSEnull=sb_baseline)%>%
+  dplyr::mutate(total_rmse_st=total_rmse/3)
+
+relevel_sb_loo<-sb_marginals%>%
+  filter(RMSE=="LOO")%>%
+  arrange(total_rmse_st)
+sb_marginals$cov <- factor(sb_marginals$cov, levels =relevel_sb_loo$cov)
+
+
+
 #### Petrale Sole ####
 ps_covariates<-colnames(ps_dat%>%select(-c(Y_rec, sd, type,  year)))
 ps_baseline <-  null_RMSE(ps_dat)
@@ -153,7 +169,14 @@ ps_marginals <- RMSE_improvement(ps_loo,ps_baseline,ps_model,ps_covariates)%>%
 ps_marginals$total_rmse <- apply(ps_marginals[,c("rmse_12","rmse_23")], 1, mean)
 ps_marginals$total_aic <- apply(ps_marginals[,c("aic_12", "aic_23")], 1, mean)
 
-ps_marginals<- ps_marginals%>%mutate(RMSEnull=ps_baseline)
+ps_marginals<- ps_marginals%>%mutate(RMSEnull=ps_baseline)%>%
+  dplyr::mutate(total_rmse_st=total_rmse/3)
+
+relevel_ps_loo<-ps_marginals%>%
+  filter(RMSE=="LOO")%>%
+  arrange(total_rmse_st)
+ps_marginals$cov <- factor(ps_marginals$cov, levels =relevel_ps_loo$cov)
+
 #### Single dataset ####
 marginals<-ps_marginals%>%
   add_row(sb_marginals)%>%
@@ -161,35 +184,162 @@ marginals<-ps_marginals%>%
 write_rds(marginals, "Output/Data/marginals.rds")
 
 #### Figures #### 
-
-gam_loo_table <- marginals%>%
-  group_by(species, RMSE)%>%
-  dplyr::arrange(marginals, rmse_23)%>%
-  dplyr::select(cov, rmse_23, total_rmse)
-gam_loo_table[is.na(gam_loo_table)] <-"No"
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
 
-marginal <- ggplot(gam_loo_table, aes(
+marginal_yt <- ggplot(yt_marginals, aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
-  y = reorder_within(cov, total_rmse, species),
-  x = total_rmse,
-  fill = total_rmse
+  y =cov,
+  x = total_rmse_st,
+  fill = total_rmse_st
 )) +
-  # Note that we swapped x and y in aes() because of coord_flip()
+  xlim(c(-.1,0.05))+
+ facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
+  geom_bar(stat = "identity") +
+  labs(x = "Mean Marginal Improvement RMSE", y = "") +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.05)) +
+  theme_classic()+
+  theme(legend.position = "none")
+marginal_yt
+
+marginal_sb <- ggplot(sb_marginals, aes(
+  # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
+  y =cov,
+  x = total_rmse_st,
+  fill = total_rmse_st
+)) +
+  xlim(c(-.1,0.05))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
-  # Add the scale_y_reordered function to clean up the axis labels
- scale_y_reordered() +
-  #coord_flip() +
-  labs(x = "Mean Marginal Improvement RMSE", y = "Predictor") +
-  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  labs(x = "", y = "Predictor") +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.05)) +
   theme_classic()
+marginal_sb
+
+marginal_ps <- ggplot(ps_marginals, aes(
+  # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
+  y =cov,
+  x = total_rmse_st,
+  fill = total_rmse_st
+)) +
+  xlim(c(-.1,0.05))+
+  facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "") +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.05)) +
+  theme_classic()+
+  theme(legend.position = "none")
+marginal_ps 
+
+z<- ggplot()+theme_void()
+
+marginal<- ggarrange(ggarrange(marginal_ps,z, widths = c(4.25,0.75), ncol=2, nrow=1),
+                     marginal_sb, 
+                     ggarrange(marginal_yt,z, widths = c(4.25,0.75), ncol=2, nrow=1), 
+                     ncol = 1, nrow = 3)
 marginal
-pdf(file = "Output/Figures/MarginalMeanRMSE.pdf", width = 11, height = 8)
+
+
+pdf(file = "Output/Figures/MarginalMeanRMSE.pdf", width = 8, height = 11)
 marginal 
 dev.off()
 
-png(file = "Output/Figures/MarginalMeanRMSE.png",width = 1100, height = 800, res = 100)
+png(file = "Output/Figures/MarginalMeanRMSE.png",width = 800, height = 1100, res = 100)
 marginal 
 dev.off()
 
+#### Rolling Window ####
+
+##### yellowtail #####
+yt_RW<-data.frame(yt[["RW"]][["results"]])
+length_window<-15
+firstyr<-unique(yt_RW$firstyear)
+lastyr<-unique(yt_RW$lastyear)
+dat<-yt_RW
+results <- data.frame()
+results_temp <- data.frame()
+for(k in 1:length(firstyear)){
+  datwindow <- dat%>%filter(firstyear==firstyr[k])
+  results_temp<-  RMSE_improvement(datwindow,yt_baseline,yt_model,yt_covariates)%>%
+    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k])
+ 
+  results<- rbind(results,results_temp)   
+}
+rolling_yt<-results
+rolling_yt$total_rmse <- apply(rolling_yt[,c("rmse_12","rmse_23")], 1, mean)/3
+rolling_yt$total_aic <- apply(rolling_yt[,c("aic_12", "aic_23")], 1, mean)/3
+
+rollingplot_yt<-ggplot(rolling_yt,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse )) + 
+  xlab("First Year")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Yellowtail")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
+rollingplot_yt
+##### sablefish #####
+sb_RW<-data.frame(sb[["RW"]][["results"]])
+length_window<-15
+firstyr<-unique(sb_RW$firstyear)
+lastyr<-unique(sb_RW$lastyear)
+dat<-sb_RW
+results <- data.frame()
+results_temp <- data.frame()
+for(k in 1:length(firstyear)){
+  datwindow <- dat%>%filter(firstyear==firstyr[k])
+  results_temp<-  RMSE_improvement(datwindow,sb_baseline,sb_model,sb_covariates)%>%
+    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k])
+  
+  results<- rbind(results,results_temp)   
+}
+rolling_sb<-results
+rolling_sb$total_rmse <- apply(rolling_sb[,c("rmse_12","rmse_23")], 1, mean)/3
+rolling_sb$total_aic <- apply(rolling_sb[,c("aic_12", "aic_23")], 1, mean)/3
+
+rollingplot_sb<-ggplot(rolling_sb,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse)) + 
+  xlab("First Year")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Sablefish")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
+
+
+##### sablefish #####
+ps_RW<-data.frame(ps[["RW"]][["results"]])
+firstyr<-unique(ps_RW$firstyear)
+lastyr<-unique(ps_RW$lastyear)
+dat<-ps_RW
+results <- data.frame()
+results_temp <- data.frame()
+for(k in 1:length(firstyear)){
+  datwindow <- dat%>%filter(firstyear==firstyr[k])
+  results_temp<-  RMSE_improvement(datwindow,ps_baseline,ps_model,ps_covariates)%>%
+    mutate(range=paste(firstyr[k],"-",lastyr[k]),FirstYear=firstyr[k])
+  
+  results<- rbind(results,results_temp)   
+}
+rolling_ps<-results
+rolling_ps$total_rmse <- apply(rolling_ps[,c("rmse_12","rmse_23")], 1, mean)/3
+rolling_ps$total_aic <- apply(rolling_ps[,c("aic_12", "aic_23")], 1, mean)/3
+
+rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse)) + 
+  xlab("First Year")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Petrale Sole")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
+
+##### Figures #####
+rollingplot <- ggarrange(rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
+
+pdf(file = "Output/Figures/rollingplot.pdf", width =12, height = 8)
+rollingplot
+dev.off()
+
+png(file = "Output/Figures/rollingplot.png",width = 1200, height = 800, res = 100)
+rollingplot
+dev.off()
