@@ -32,7 +32,7 @@ ps_LFO10_pred<-data.frame(ps[["LFO10"]][["predicted"]])
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
   # filter(type=="Main_RecrDev")%>%
-  filter(year>1993&year<2023)
+  filter(year>1994&year<=2018)
 
 sb <- readRDS("Output/Data/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
@@ -44,7 +44,7 @@ sb_LFO10_pred<-data.frame(sb[["LFO10"]][["predicted"]])
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
   filter(type=="Main_RecrDev")%>%
-  filter(year>1993)
+  filter(year>1994&year<=2018)
 
 yt <- readRDS("Output/Data/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
@@ -56,9 +56,11 @@ yt_LFO10_pred<-data.frame(yt[["LFO10"]][["predicted"]])
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
-  filter(Datatreatment=="2025 Final"&year>1993&year<2023)
+  filter(Datatreatment=="2025 Final"&year>1994&year<=2018)
 z<- ggplot()+theme_void()
-#### Yellowtail ####
+
+#### Time Series ####
+##### Yellowtail #####
 yt_baseline <-  null_RMSE(yt_dat)
 
 best_loo<-yt_loo%>%arrange(RMSE_loo)%>%select(ModelID,RMSE_loo)%>%left_join(yt_loo_pred)%>%
@@ -79,11 +81,11 @@ yt_lfo10_plot<-ggplot()+
   geom_line(data=yt_dat,aes( y=Y_rec, x=year), lwd=0.25)+
   geom_ribbon(data=yt_dat,aes(ymin=Y_rec-1.96*sd, ymax=Y_rec+1.96*sd, x=year), alpha=0.1, col='lightgray')+
   geom_point(data=yt_LFO10_pred%>%
-               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=3)+
+               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=2)+
   geom_point(data=yt_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=3)+
+               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=2)+
   geom_point(data=yt_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=3)+
+               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=2)+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
@@ -111,7 +113,7 @@ yt_loo_plot<-ggplot()+
 yt_ts<- annotate_figure(top="Yellowtail", bottom="Year",
                 ggarrange(yt_lfo10_plot,yt_loo_plot,z, ncol = 3, nrow = 1,widths=c(1,1,0.6), labels=c("E.", "F.","")))
 
-#### Sablefish ####
+##### Sablefish #####
 sb_baseline <-  null_RMSE(sb_dat)
 
 best_loo<-sb_loo%>%arrange(RMSE_loo)%>%select(ModelID,RMSE_loo)%>%left_join(sb_loo_pred)%>%
@@ -133,11 +135,11 @@ sb_lfo10_plot<-ggplot()+
   geom_line(data=sb_dat,aes( y=Y_rec, x=year), lwd=0.25)+
   geom_ribbon(data=sb_dat,aes(ymin=Y_rec-1.96*sd, ymax=Y_rec+1.96*sd, x=year), alpha=0.1, col='lightgray')+
   geom_point(data=sb_LFO10_pred%>%
-               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=3)+
+               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=2)+
   geom_point(data=sb_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=3)+
+               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=2)+
   geom_point(data=sb_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=3)+
+               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=2)+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
@@ -172,7 +174,7 @@ sb_loo_plot
 sb_ts<- annotate_figure(top="Sablefish", 
                         ggarrange(sb_lfo10_plot,sb_loo_plot, ncol = 2, nrow = 1, labels=c("C.", "D."), widths=c(1,1.75)))
 sb_ts
-#### Petrale ####
+##### Petrale #####
 ps_baseline <-  null_RMSE(ps_dat)
 
 best_loo<-ps_loo%>%arrange(RMSE_loo)%>%select(ModelID,RMSE_loo)%>%left_join(ps_loo_pred)%>%
@@ -193,11 +195,11 @@ ps_lfo10_plot<-ggplot()+
   geom_line(data=ps_dat,aes( y=Y_rec, x=year))+
   geom_ribbon(data=ps_dat,aes(ymin=Y_rec-1.96*sd, ymax=Y_rec+1.96*sd, x=year), alpha=0.1, col='lightgray')+
   geom_point(data=ps_LFO10_pred%>%
-               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=3)+
+               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=2)+
   geom_point(data=ps_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=3)+
+               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=2)+
   geom_point(data=ps_LFO10_pred%>%
-               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=3)+
+               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=2)+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
@@ -236,3 +238,48 @@ dev.off()
 png(file = "Output/Figures/all_ts.png",width = 900, height = 900, res = 100)
 all_ts
 dev.off()
+
+#### Time Series Covariates ####
+df$value[is.na(df$value)] <- ""
+
+full_table_sb<- sb_loo%>%
+ mutate(var2 = replace_na(var2, ""))%>%
+  mutate(var3 = replace_na(var3, ""))%>%
+  mutate(variables = paste(var1, var2, var3, sep=' '))%>%
+  select(ModelID, species, RMSE_loo, dev.ex, AIC, Hit, variables)%>%
+  left_join(sb_lfo5%>%
+              rename(RMSE5=RMSE)%>%
+              select(ModelID, RMSE5))%>%
+  left_join(sb_lfo10%>%
+    rename(RMSE10=RMSE)%>%
+    select(ModelID, RMSE10))
+
+full_table_ps<- ps_loo%>%
+  mutate(var2 = replace_na(var2, ""))%>%
+  mutate(var3 = replace_na(var3, ""))%>%
+  mutate(variables = paste(var1, var2, var3, sep=' '))%>%
+  select(ModelID, species, RMSE_loo, dev.ex, AIC, Hit, variables)%>%
+  left_join(ps_lfo5%>%
+              rename(RMSE5=RMSE)%>%
+              select(ModelID, RMSE5))%>%
+  left_join(ps_lfo10%>%
+              rename(RMSE10=RMSE)%>%
+              select(ModelID, RMSE10))
+
+full_table_yt<- yt_loo%>%
+  mutate(var2 = replace_na(var2, ""))%>%
+  mutate(var3 = replace_na(var3, ""))%>%
+  mutate(variables = paste(var1, var2, var3, sep=' '))%>%
+  select(ModelID, species, RMSE_loo, dev.ex, AIC, Hit, variables)%>%
+  left_join(yt_lfo5%>%
+              rename(RMSE5=RMSE)%>%
+              select(ModelID, RMSE5))%>%
+  left_join(yt_lfo10%>%
+              rename(RMSE10=RMSE)%>%
+              select(ModelID, RMSE10))
+
+
+write.csv(full_table_yt, "Output/Data/yt_table.csv")
+write.csv(full_table_ps, "Output/Data/ps_table.csv")
+write.csv(full_table_sb, "Output/Data/sb_table.csv")
+

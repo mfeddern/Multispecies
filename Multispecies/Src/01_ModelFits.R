@@ -22,25 +22,25 @@ library(ggpubr)
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
     filter(type=="Main")%>%
-  filter(Datatreatment=="2025 Final"&year>1993&year<2023)
+  filter(Datatreatment=="2025 Final"&year>1993&year<=2018)
 #yt_loo <- readRDS("Output/Data/yt_selection.rds")
 
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
-  filter(type=="Main_RecrDev"&year>1993)
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)
 
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
- # filter(type=="Main_RecrDev")%>%
-  filter(year>1993&year<2023)
+  filter(type=="Main_RecrDev")%>%
+  filter(year>1993&year<=2018)
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
   filter(type=="Main_RecrDev")%>%
-  filter(year>1993)
+  filter(year>1993&year<=2018)
 
 #### Functions ####
-threshold<-3
+
 combinations <- function(data,threshold,maxcovar){
   #threshold <- corr_threshold #0.95#0.3 #assiging a threshold of correlation to filter out 
   yt_env <- data%>%select(-c(Y_rec, sd, type))
@@ -320,7 +320,7 @@ LFO <- function(dat,combinations,n_pred, species_name){
       species=species_name,
       Hit=Hit,
       AIC = AIC(gam_model),
-      RMSE = round(rmse,3),
+      RMSE = round(rmse,8),
       rsq=round(r2,2),
       dev.ex=round(dev.expl,4),
       n_pred=n_pred,
@@ -446,21 +446,21 @@ yt_covariates<- yt_combinations_results$covariates
 yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
 yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
 yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
-yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2020, 15,"Yellowtail")
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018, 15,"Yellowtail")
 yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo,"RW" = yt_results_rw)
 
 write_rds(yt_results, "Output/Data/yt_model_fits.rds")
 
 #single variable for Mohns and Marginal
 
-yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), 0.5,1)
-yt_combinations<- yt_combinations_results$combinations
-yt_covariates<- yt_combinations_results$covariates
-yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
-yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
-yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
-yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo)
-#write_rds(yt_results, "Output/Data/yt_model_single_fits_late.rds")
+sb_combinations_results <- combinations(sb_dat, 0.5,1)
+sb_combinations<- sb_combinations_results$combinations
+sb_covariates<- sb_combinations_results$covariates
+sb_results_5<- LFO(sb_dat,sb_combinations, 5,"Yellowtail")
+sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Yellowtail")
+sb_results_loo<- model_fit(sb_combinations, sb_dat,"Yellowtail")
+sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo)
+write_rds(sb_results, "Output/Data/sb_model_single_fits_late.rds")
 
 #### Sablefish ####
 
@@ -470,7 +470,7 @@ sb_covariates<- sb_combinations_results$covariates
 sb_results_5<- LFO(sb_dat,sb_combinations, 5,"Sablefish")
 sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Sablefish")
 sb_results_loo<- model_fit(sb_combinations, sb_dat,"Sablefish")
-sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2020, 15,"Sablefish")
+sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2018, 15,"Sablefish")
 sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo,"RW" = sb_results_rw)
 #write_rds(sb_results, "Output/Data/sb_model_single_fits.rds")
 write_rds(sb_results, "Output/Data/sb_model_fits.rds")
@@ -484,7 +484,7 @@ ps_covariates<- ps_combinations_results$covariates
 ps_results_5<- LFO(ps_dat,ps_combinations, 5,"Petrale Sole")
 ps_results_10<- LFO(ps_dat,ps_combinations, 10,"Petrale Sole")
 ps_results_loo<- model_fit(ps_combinations, ps_dat,"Petrale Sole")
-ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,2020, 15,"Petrale Sole")
+ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,2018, 15,"Petrale Sole")
 ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo,"RW" = ps_results_rw)
 #write_rds(ps_results, "Output/Data/ps_model_single_fits.rds")
 write_rds(ps_results, "Output/Data/ps_model_fits.rds")

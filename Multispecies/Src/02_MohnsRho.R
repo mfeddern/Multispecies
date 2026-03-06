@@ -22,7 +22,7 @@ library(ggpubr)
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
-  filter(Datatreatment=="2025 Final"&year>1993)
+  filter(Datatreatment=="2025 Final"&year>1993&year<=2018)
 yt <- readRDS("Output/Data/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_lfo5<-data.frame(yt[["LFO5"]][["results"]])
@@ -30,7 +30,7 @@ yt_lfo10<-data.frame(yt[["LFO10"]][["results"]])
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
-  filter(type=="Main_RecrDev"&year>1993)
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)
 sb <- readRDS("Output/Data/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_lfo5<-data.frame(sb[["LFO5"]][["results"]])
@@ -38,7 +38,7 @@ sb_lfo10<-data.frame(sb[["LFO10"]][["results"]])
 
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
-  filter(type=="Main_RecrDev"&year>1993)
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)
 ps <- readRDS("Output/Data/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_lfo5<-data.frame(ps[["LFO5"]][["results"]])
@@ -52,11 +52,11 @@ FunctionalRelationships<- function(data,peel,form,numvar){
   full_edfs<-summary(model)$s.table[, "edf"]
   mohns<-data.frame()
   ts_smooths<-data.frame()
-  nyears<-length(data)
+  #nyears<-length(data$Y_rec)
 for(i in 1:peel){
 
-  trainingmin <-nyears - peel
-  peeled<-trainingmin+ i
+  trainingmin <-nyears - peel -
+  peeled<-trainingmin+ i 
   trainingdata<-  data[1:(nyears-i),]
   mod<-gam(as.formula(form), data= trainingdata)
   x<- plot(mod,ask="N")
@@ -141,7 +141,7 @@ plot_dat_yt<-yt_dat%>%select(year,Y_rec,unique(results_yt[[1]]$var))%>%
   mutate(Species="Yellowtail")
 
 ##### Sablefish #####
-npeel<-15
+npeel<-20
 formulas<-list()
 res<-data.frame()
 mohn<-data.frame()
@@ -158,7 +158,7 @@ nyears<-length(sb_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_sb <- FunctionalRelationships(sb_dat, 15,formula_str,3)
+results_sb <- FunctionalRelationships(sb_dat, 15,formula_str,2)
 
 mohns_sb<- results_sb[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -269,7 +269,7 @@ sb_best <- ggarrange(mohns_sb_plot,sb_var, ncol = 2, nrow = 1)
 ps_best <- ggarrange(mohns_ps_plot,ps_var, ncol = 2, nrow = 1)
 
 all_best_loo <- ggarrange(yt_best, sb_best, ps_best, ncol = 1, nrow = 3)
-
+all_best_loo
 pdf(file = "Output/Figures/all_best_loo.pdf", width = 11, height = 8)
 all_best_loo
 dev.off()
@@ -309,7 +309,6 @@ sb_single <- readRDS("Output/Data/sb_model_single_fits.rds")
 sb_single_loo<-data.frame(sb_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
-npeel<-10
 results_single_sb<- single_covs(sb_single_loo,sb_dat)
 mohns_sb<- results_single_sb[[2]]%>%
   mutate(Species="Sablefish")
@@ -329,7 +328,7 @@ ps_single <- readRDS("Output/Data/ps_model_single_fits.rds")
 ps_single_loo<-data.frame(ps_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
-npeel<-10
+#npeel<-15
 results_single_ps<- single_covs(ps_single_loo,ps_dat)
 mohns_ps<- results_single_ps[[2]]%>%
   mutate(Species="Petrale Sole")
@@ -351,8 +350,8 @@ mohns10<- mohns10ps%>%
   
 mohns10yt_plot<-ggplot(mohns10yt, aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
-  y =  variable,
-  x =   mohns,
+  y =  reorder( variable,abs(mohns), .desc = TRUE),
+  x =   abs(mohns),
   fill=mohns
 )) +
   # Note that we swapped x and y in aes() because of coord_flip()
@@ -362,7 +361,7 @@ mohns10yt_plot<-ggplot(mohns10yt, aes(
   scale_y_reordered() +
   #coord_flip() +
   ggtitle("Yellowtail")+
-  xlim(c(-0.3,0.3))+
+  xlim(c(-0,0.7))+
   labs(x = "Mohn's Rho", y = "Predictor")+
 #  scale_fill_gradient2(low ="Darkgreen", mid="white", high = "Darkgreen") +
   theme_classic()+
@@ -370,8 +369,8 @@ mohns10yt_plot<-ggplot(mohns10yt, aes(
 
 mohns10sb_plot<-ggplot(mohns10sb, aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
-  y =  variable,
-  x =   mohns,
+  y =  reorder( variable,abs(mohns), .desc = TRUE),
+  x =   abs(mohns),
   fill=mohns
 )) +
   ggtitle("Sablefish")+
@@ -381,19 +380,17 @@ mohns10sb_plot<-ggplot(mohns10sb, aes(
   # Add the scale_y_reordered function to clean up the axis labels
   scale_y_reordered() +
   #coord_flip() +
-  xlim(c(-0.3,0.3))+
+  xlim(c(-0,0.7))+
   labs(x = "Mohn's Rho", y = "Predictor")+
   #  scale_fill_gradient2(low ="Darkgreen", mid="white", high = "Darkgreen") +
   theme_classic()+
   theme(plot.title = element_text(hjust = 0.5))
 
-
 mohns10ps_plot<-ggplot(mohns10ps, aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
-  y =  variable,
-  x =   mohns,
-  fill=mohns
-)) +
+  y =  reorder( variable,abs(mohns), .desc = TRUE),
+  x =  abs(mohns),
+  fill=mohns)) +
   ggtitle("Petrale Sole")+
   # Note that we swapped x and y in aes() because of coord_flip()
   # facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
@@ -401,12 +398,12 @@ mohns10ps_plot<-ggplot(mohns10ps, aes(
   # Add the scale_y_reordered function to clean up the axis labels
   scale_y_reordered() +
   #coord_flip() +
-  xlim(c(-0.3,0.3))+
+  xlim(c(-0,0.7))+
   labs(x = "Mohn's Rho", y = "Predictor")+
   #  scale_fill_gradient2(low ="Darkgreen", mid="white", high = "Darkgreen") +
   theme_classic()+
   theme(plot.title = element_text(hjust = 0.5))
-
+mohns10ps_plot
 
 
 mohns_single_plot <- ggarrange(mohns10yt_plot, mohns10sb_plot, mohns10ps_plot, ncol = 3, nrow = 1)
@@ -418,3 +415,18 @@ dev.off()
 png(file = "Output/Figures/mohns_single_plot.png",width = 800, height = 400, res = 100)
 mohns_single_plot
 dev.off()
+
+
+#### RMSE Comparison ####
+
+ggplot(data=results_single_yt[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
+  geom_smooth(se = FALSE)+
+  theme_classic()
+
+ggplot(data=results_single_sb[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
+  geom_smooth(se = FALSE)+
+  theme_classic()
+
+ggplot(data=results_single_ps[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
+  geom_smooth(se = FALSE)+
+  theme_classic()

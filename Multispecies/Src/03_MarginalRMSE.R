@@ -121,7 +121,7 @@ yt_marginals <- RMSE_improvement(yt_loo,yt_baseline,yt_model,yt_covariates)%>%
             mutate(species=yt_LFO5$species[1],RMSE="LFO 5"))%>%
   add_row(RMSE_improvement(yt_LFO10,yt_baseline,yt_model,yt_covariates)%>%
             mutate(species=yt_LFO10$species[1],RMSE="LFO 10"))
-yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_12","rmse_23")], 1, mean)
+yt_marginals$total_rmse <- apply(yt_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
 yt_marginals$total_aic <- apply(yt_marginals[,c("aic_12", "aic_23")], 1, mean)
 
 yt_marginals<- yt_marginals%>%mutate(RMSEnull=yt_baseline)%>%
@@ -143,7 +143,7 @@ sb_marginals <- RMSE_improvement(sb_loo,sb_baseline,sb_model,sb_covariates)%>%
   add_row(RMSE_improvement(sb_LFO10,sb_baseline,sb_model,sb_covariates)%>%
     mutate(species=sb_LFO10$species[1],RMSE="LFO 10"))
 
-sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_12","rmse_23")], 1, mean)
+sb_marginals$total_rmse <- apply(sb_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
 sb_marginals$total_aic <- apply(sb_marginals[,c("aic_12", "aic_23")], 1, mean)
 
 sb_marginals<- sb_marginals%>%mutate(RMSEnull=sb_baseline)%>%
@@ -166,8 +166,8 @@ ps_marginals <- RMSE_improvement(ps_loo,ps_baseline,ps_model,ps_covariates)%>%
             mutate(species=ps_LFO5$species[1],RMSE="LFO 5"))%>%
   add_row(RMSE_improvement(ps_LFO10,ps_baseline,ps_model,ps_covariates)%>%
             mutate(species=ps_LFO10$species[1],RMSE="LFO 10"))
-ps_marginals$total_rmse <- apply(ps_marginals[,c("rmse_12","rmse_23")], 1, mean)
-ps_marginals$total_aic <- apply(ps_marginals[,c("aic_12", "aic_23")], 1, mean)
+ps_marginals$total_rmse <- apply(ps_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
+ps_marginals$total_aic <- apply(ps_marginals[,c("aic_01","aic_12", "aic_23")], 1, mean)
 
 ps_marginals<- ps_marginals%>%mutate(RMSEnull=ps_baseline)%>%
   dplyr::mutate(total_rmse_st=total_rmse/3)
@@ -192,11 +192,11 @@ marginal_yt <- ggplot(yt_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.05))+
+  xlim(c(-.1,0.075))+
  facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "Mean Marginal Improvement RMSE", y = "") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.05)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.075)) +
   theme_classic()+
   theme(legend.position = "none")
 marginal_yt
@@ -207,11 +207,11 @@ marginal_sb <- ggplot(sb_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.05))+
+  xlim(c(-.1,0.075))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "", y = "Predictor") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.05)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.075)) +
   theme_classic()
 marginal_sb
 
@@ -221,11 +221,11 @@ marginal_ps <- ggplot(ps_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.05))+
+  xlim(c(-.1,0.075))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "", y = "") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.05)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.075)) +
   theme_classic()+
   theme(legend.position = "none")
 marginal_ps 
@@ -257,10 +257,10 @@ lastyr<-unique(yt_RW$lastyear)
 dat<-yt_RW
 results <- data.frame()
 results_temp <- data.frame()
-for(k in 1:length(firstyear)){
+for(k in 1:length(firstyr)){
   datwindow <- dat%>%filter(firstyear==firstyr[k])
   results_temp<-  RMSE_improvement(datwindow,yt_baseline,yt_model,yt_covariates)%>%
-    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k])
+    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k], LastYear=lastyr[k])
  
   results<- rbind(results,results_temp)   
 }
@@ -268,7 +268,7 @@ rolling_yt<-results
 rolling_yt$total_rmse <- apply(rolling_yt[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_yt$total_aic <- apply(rolling_yt[,c("aic_12", "aic_23")], 1, mean)/3
 
-rollingplot_yt<-ggplot(rolling_yt,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse )) + 
+rollingplot_yt<-ggplot(rolling_yt,aes(x=as.factor(LastYear), y=cov, fill= total_rmse )) + 
   xlab("First Year")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
   ylab("Oceanographic Conditions")+
@@ -285,18 +285,19 @@ lastyr<-unique(sb_RW$lastyear)
 dat<-sb_RW
 results <- data.frame()
 results_temp <- data.frame()
-for(k in 1:length(firstyear)){
+for(k in 1:length(firstyr)){
   datwindow <- dat%>%filter(firstyear==firstyr[k])
   results_temp<-  RMSE_improvement(datwindow,sb_baseline,sb_model,sb_covariates)%>%
-    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k])
+    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k], LastYear=lastyr[k])
   
   results<- rbind(results,results_temp)   
 }
+
 rolling_sb<-results
 rolling_sb$total_rmse <- apply(rolling_sb[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_sb$total_aic <- apply(rolling_sb[,c("aic_12", "aic_23")], 1, mean)/3
 
-rollingplot_sb<-ggplot(rolling_sb,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse)) + 
+rollingplot_sb<-ggplot(rolling_sb,aes(x=as.factor(LastYear), y=cov, fill= total_rmse)) + 
   xlab("First Year")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
   ylab("Oceanographic Conditions")+
@@ -313,10 +314,10 @@ lastyr<-unique(ps_RW$lastyear)
 dat<-ps_RW
 results <- data.frame()
 results_temp <- data.frame()
-for(k in 1:length(firstyear)){
+for(k in 1:length(firstyr)){
   datwindow <- dat%>%filter(firstyear==firstyr[k])
   results_temp<-  RMSE_improvement(datwindow,ps_baseline,ps_model,ps_covariates)%>%
-    mutate(range=paste(firstyr[k],"-",lastyr[k]),FirstYear=firstyr[k])
+    mutate(range=paste(firstyr[k],"-",lastyr[k]),FirstYear=firstyr[k],LastYear=lastyr[k])
   
   results<- rbind(results,results_temp)   
 }
@@ -324,7 +325,7 @@ rolling_ps<-results
 rolling_ps$total_rmse <- apply(rolling_ps[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_ps$total_aic <- apply(rolling_ps[,c("aic_12", "aic_23")], 1, mean)/3
 
-rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(FirstYear), y=cov, fill= total_rmse)) + 
+rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_rmse)) + 
   xlab("First Year")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
   ylab("Oceanographic Conditions")+
