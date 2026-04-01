@@ -25,9 +25,11 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   filter(Datatreatment=="2025 Final"&year>1993&year<=2018)
 #yt_loo <- readRDS("Output/Data/yt_selection.rds")
 
+subsethk<-readRDS("Output/Data/hakesubset.rds")
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
-  filter(type=="Main_RecrDev"&year>1993&year<=2018)
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)%>%
+  select(all_of(subsethk), Y_rec, year, type, sd)
 
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
@@ -489,3 +491,15 @@ ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_res
 #write_rds(ps_results, "Output/Data/ps_model_single_fits.rds")
 write_rds(ps_results, "Output/Data/ps_model_fits.rds")
 
+#### Hake ####
+
+hk_combinations_results <- combinations(hk_dat,0.5,3)
+hk_combinations<- hk_combinations_results$combinations
+hk_covariates<- hk_combinations_results$covariates
+hk_results_5<- LFO(hk_dat,hk_combinations, 5,"Hake")
+hk_results_10<- LFO(hk_dat,hk_combinations, 10,"Hake")
+hk_results_loo<- model_fit(hk_combinations, hk_dat,"Hake")
+hk_results_rw<- rw_model_fit(hk_combinations, hk_dat,2018, 15,"Hake")
+hk_results <- list("LFO5" = hk_results_5, "LFO10" = hk_results_10,"LOO" = hk_results_loo,"RW" = hk_results_rw)
+#write_rds(hk_results, "Output/Data/hk_model_single_fits.rds")
+write_rds(hk_results, "Output/Data/hk_model_fits.rds")

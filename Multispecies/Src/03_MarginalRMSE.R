@@ -20,6 +20,7 @@ library(tidytext)
 library(ggpubr)
 
 #### Reading in the data ####
+
 ### Functions ###
 RMSE_improvement <-function(results,baseline_rmse,gam_model, covariates){
   
@@ -111,6 +112,10 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1993)
 
+hk <- readRDS("Output/Data/hk_model_fits.rds")
+hk_loo<-data.frame(hk[["LOO"]][["results"]])
+hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
+hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
 #### Yellowtail ####
 yt_covariates<-colnames(yt_dat%>%select(-c(Y_rec, sd, type, Datatreatment, year)))
 yt_baseline <-  null_RMSE(yt_dat)
@@ -177,10 +182,35 @@ relevel_ps_loo<-ps_marginals%>%
   arrange(total_rmse_st)
 ps_marginals$cov <- factor(ps_marginals$cov, levels =relevel_ps_loo$cov)
 
+
+#### Hake ####
+hk_covariates<-colnames(hk_dat%>%select(-c(Y_rec, sd, type,  year)))
+hk_baseline <-  null_RMSE(hk_dat)
+hk_model <- gam(Y_rec~1,data=hk_dat)
+hk_marginals <- RMSE_improvement(hk_loo,hk_baseline,hk_model,hk_covariates)%>%
+  mutate(species=hk_loo$species[1], RMSE="LOO")%>%
+  add_row(RMSE_improvement(hk_LFO5,hk_baseline,hk_model,hk_covariates)%>%
+            mutate(species=hk_LFO5$species[1],RMSE="LFO 5"))%>%
+  add_row(RMSE_improvement(hk_LFO10,hk_baseline,hk_model,hk_covariates)%>%
+            mutate(species=hk_LFO10$species[1],RMSE="LFO 10"))
+hk_marginals$total_rmse <- apply(hk_marginals[,c("rmse_01","rmse_12","rmse_23")], 1, mean)
+hk_marginals$total_aic <- apply(hk_marginals[,c("aic_01","aic_12", "aic_23")], 1, mean)
+
+hk_marginals<- hk_marginals%>%mutate(RMSEnull=hk_baseline)%>%
+  dplyr::mutate(total_rmse_st=total_rmse/3)
+
+relevel_hk_loo<-hk_marginals%>%
+  filter(RMSE=="LOO")%>%
+  arrange(total_rmse_st)
+hk_marginals$cov <- factor(hk_marginals$cov, levels =relevel_hk_loo$cov)
+#write_rds(relevel_hk_loo$cov[19:39], "Output/Data/hakesubset.rds")
+
+
 #### Single dataset ####
 marginals<-ps_marginals%>%
   add_row(sb_marginals)%>%
-  add_row(yt_marginals)
+  add_row(yt_marginals)%>%
+  add_row(hk_marginals)
 write_rds(marginals, "Output/Data/marginals.rds")
 
 #### Figures #### 
@@ -230,20 +260,40 @@ marginal_ps <- ggplot(ps_marginals, aes(
   theme(legend.position = "none")
 marginal_ps 
 
-z<- ggplot()+theme_void()
+marginal_hk <- ggplot(hk_marginals, aes(
+  # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
+  y =cov,
+  x = total_rmse_st,
+  fill = total_rmse_st
+)) +
+  xlim(c(-.1,0.075))+
+  facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "Predictor") +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.075)) +
+  theme_classic()
+marginal_hk
 
-marginal<- ggarrange(ggarrange(marginal_ps,z, widths = c(4.25,0.75), ncol=2, nrow=1),
+
+#z<- ggplot()+theme_void()
+
+#marginal<- ggarrange(ggarrange(marginal_ps,z, widths = c(4.25,0.75), ncol=2, nrow=1),
+#                     marginal_sb, 
+#                     ggarrange(marginal_yt,z, widths = c(4.25,0.75), ncol=2, nrow=1), 
+#                     ncol = 1, nrow = 3)
+#marginal
+marginal<- ggarrange(marginal_ps,
                      marginal_sb, 
-                     ggarrange(marginal_yt,z, widths = c(4.25,0.75), ncol=2, nrow=1), 
-                     ncol = 1, nrow = 3)
+                     marginal_yt,marginal_hk, widths = c(3.5,4), 
+                     ncol = 2, nrow = 2)
 marginal
 
 
-pdf(file = "Output/Figures/MarginalMeanRMSE.pdf", width = 8, height = 11)
+pdf(file = "Output/Figures/MarginalMeanRMSE.pdf", width = 11, height = 11)
 marginal 
 dev.off()
 
-png(file = "Output/Figures/MarginalMeanRMSE.png",width = 800, height = 1100, res = 100)
+png(file = "Output/Figures/MarginalMeanRMSE.png",width = 1100, height = 1100, res = 100)
 marginal 
 dev.off()
 
@@ -277,6 +327,35 @@ rollingplot_yt<-ggplot(rolling_yt,aes(x=as.factor(LastYear), y=cov, fill= total_
   theme_bw()+
   theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
 rollingplot_yt
+
+##### hake #####
+hk_RW<-data.frame(hk[["RW"]][["results"]])
+length_window<-15
+firstyr<-unique(hk_RW$firstyear)
+lastyr<-unique(hk_RW$lastyear)
+dat<-hk_RW
+results <- data.frame()
+results_temp <- data.frame()
+for(k in 1:length(firstyr)){
+  datwindow <- dat%>%filter(firstyear==firstyr[k])
+  results_temp<-  RMSE_improvement(datwindow,hk_baseline,hk_model,hk_covariates)%>%
+    mutate(range=paste(firstyr[k],"-",lastyr[k]), FirstYear=firstyr[k], LastYear=lastyr[k])
+  
+  results<- rbind(results,results_temp)   
+}
+rolling_hk<-results
+rolling_hk$total_rmse <- apply(rolling_hk[,c("rmse_12","rmse_23")], 1, mean)/3
+rolling_hk$total_aic <- apply(rolling_hk[,c("aic_12", "aic_23")], 1, mean)/3
+
+rollingplot_hk<-ggplot(rolling_hk,aes(x=as.factor(LastYear), y=cov, fill= total_rmse )) + 
+  xlab("First Year")+
+  scale_fill_gradient(low = "white", high = "Darkgreen") +
+  ylab("Oceanographic Conditions")+
+  ggtitle("Hake")+
+  geom_tile()+
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
+rollingplot_hk
 ##### sablefish #####
 sb_RW<-data.frame(sb[["RW"]][["results"]])
 length_window<-15
@@ -335,7 +414,7 @@ rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_
   theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
 
 ##### Figures #####
-rollingplot <- ggarrange(rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
+rollingplot <- ggarrange(rollingplot_hk,rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
 
 pdf(file = "Output/Figures/rollingplot.pdf", width =12, height = 8)
 rollingplot

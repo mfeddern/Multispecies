@@ -57,6 +57,19 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1994&year<=2018)
+
+subsethk<-readRDS("Output/Data/hakesubset.rds")
+hk <- readRDS("Output/Data/hk_model_fits.rds")
+hk_loo<-data.frame(hk[["LOO"]][["results"]])
+hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
+hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
+hk_loo_pred<-data.frame(hk[["LOO"]][["predicted"]])
+hk_LFO5_pred<-data.frame(hk[["LFO5"]][["predicted"]])
+hk_LFO10_pred<-data.frame(hk[["LFO10"]][["predicted"]])
+hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
+  select(-X)%>%
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)%>%
+  select(all_of(subsethk), Y_rec, year, type, sd)
 z<- ggplot()+theme_void()
 
 #### Time Series ####
@@ -228,14 +241,67 @@ ps_ts<- annotate_figure(top="Petrale Sole",
                         ggarrange(ps_lfo10_plot,ps_loo_plot,z, ncol = 3, nrow = 1, widths=c(1,1,0.6),labels=c("A.", "B.","")))
 
 
+##### Hake #####
+hk_baseline <-  null_RMSE(hk_dat)
 
-all_ts<- ggarrange(ps_ts, sb_ts,yt_ts, ncol = 1, nrow = 3)
+best_loo<-hk_loo%>%arrange(RMSE_loo)%>%select(ModelID,RMSE_loo)%>%left_join(hk_loo_pred)%>%
+  rename(RMSE=RMSE_loo)%>%
+  mutate(Criteria="LOO")%>%
+  filter(RMSE ==min(RMSE))
+
+best_lfo5<- hk_LFO5%>%arrange(RMSE)%>%select(ModelID,RMSE)%>%left_join(hk_LFO5_pred)%>%
+  mutate(Criteria="LFO5")%>%
+  filter(RMSE ==min(RMSE))
+
+best_lfo10<-hk_LFO10%>%arrange(RMSE)%>%select(ModelID,RMSE)%>%left_join(hk_LFO10_pred)%>%
+  mutate(Criteria="LFO10")%>%
+  filter(RMSE ==min(RMSE))
+
+
+hk_lfo10_plot<-ggplot()+
+  geom_line(data=hk_dat,aes( y=Y_rec, x=year), lwd=0.25)+
+  geom_ribbon(data=hk_dat,aes(ymin=Y_rec-1.96*sd, ymax=Y_rec+1.96*sd, x=year), alpha=0.1, col='lightgray')+
+  geom_point(data=hk_LFO10_pred%>%
+               filter(ModelID %in% unique(best_loo$ModelID)), (aes(y=pred, x=year)), col=col_dv[1], pch=17, cex=2)+
+  geom_point(data=hk_LFO10_pred%>%
+               filter(ModelID %in% unique(best_lfo10$ModelID)), (aes(y=pred, x=year)), col=col_dv[5], pch=16, cex=2)+
+  geom_point(data=hk_LFO10_pred%>%
+               filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=2)+
+  geom_hline(yintercept = 0, lty=2)+
+  ylab("")+
+  xlab("")+
+  ggtitle("")+
+  theme_bw()+  
+  theme(plot.title = element_text(hjust = 0.5))
+
+hk_loo_plot<-ggplot()+
+  geom_point(data=hk_dat,aes( y=Y_rec, x=year), cex=2)+
+  geom_ribbon(data=hk_dat,aes(ymin=Y_rec-1.96*sd, ymax=Y_rec+1.96*sd, x=year), alpha=0.1, col='lightgray')+
+  geom_line(data=hk_dat,aes( y=Y_rec, x=year), cex=0.25)+
+  geom_line(data=hk_loo_pred%>%
+              filter(ModelID %in% unique(best_loo$ModelID[1])), (aes(y=pred, x=year)), col=col_dv[1], cex=1.5)+
+  geom_line(data=hk_loo_pred%>%
+              filter(ModelID %in% unique(best_lfo10$ModelID[1])), (aes(y=pred, x=year)), col=col_dv[5], cex=1.5)+
+  geom_line(data=hk_loo_pred%>%
+              filter(ModelID %in% unique(best_lfo5$ModelID[1])), (aes(y=pred, x=year)), col=col_dv[3],  cex=1.5)+
+  geom_hline(yintercept = 0, lty=2)+
+  ylab("")+
+  xlab("")+
+  ggtitle("")+
+  theme_bw()+  
+  theme(plot.title = element_text(hjust = 0.5))  
+
+hk_ts<- annotate_figure(top="Hake", bottom="Year",
+                        ggarrange(hk_lfo10_plot,hk_loo_plot,z, ncol = 3, nrow = 1,widths=c(1,1,0.6), labels=c("G.", "H.","")))
+
+
+all_ts<- ggarrange(ps_ts, sb_ts,yt_ts, hk_ts,ncol = 1, nrow = 4)
 all_ts
-pdf(file = "Output/Figures/all_ts.pdf", width =9, height =9)
+pdf(file = "Output/Figures/all_ts.pdf", width =9, height =12)
 all_ts
 dev.off()
 
-png(file = "Output/Figures/all_ts.png",width = 900, height = 900, res = 100)
+png(file = "Output/Figures/all_ts.png",width = 900, height = 1200, res = 100)
 all_ts
 dev.off()
 
@@ -278,8 +344,19 @@ full_table_yt<- yt_loo%>%
               rename(RMSE10=RMSE)%>%
               select(ModelID, RMSE10))
 
-
+full_table_hk<- hk_loo%>%
+  mutate(var2 = replace_na(var2, ""))%>%
+  mutate(var3 = replace_na(var3, ""))%>%
+  mutate(variables = paste(var1, var2, var3, sep=' '))%>%
+  select(ModelID, species, RMSE_loo, dev.ex, AIC, Hit, variables)%>%
+  left_join(hk_lfo5%>%
+              rename(RMSE5=RMSE)%>%
+              select(ModelID, RMSE5))%>%
+  left_join(hk_lfo10%>%
+              rename(RMSE10=RMSE)%>%
+              select(ModelID, RMSE10))
 write.csv(full_table_yt, "Output/Data/yt_table.csv")
 write.csv(full_table_ps, "Output/Data/ps_table.csv")
 write.csv(full_table_sb, "Output/Data/sb_table.csv")
+write.csv(full_table_hk, "Output/Data/hk_table.csv")
 

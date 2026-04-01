@@ -44,6 +44,15 @@ ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_lfo5<-data.frame(ps[["LFO5"]][["results"]])
 ps_lfo10<-data.frame(ps[["LFO10"]][["results"]])
 
+subsethk<-readRDS("Output/Data/hakesubset.rds")
+hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
+  select(-X)%>%
+  filter(type=="Main_RecrDev"&year>1993&year<=2018)%>%
+  select(all_of(subsethk), Y_rec, year, type, sd)
+hk <- readRDS("Output/Data/hk_model_fits.rds")
+hk_loo<-data.frame(hk[["LOO"]][["results"]])
+hk_lfo5<-data.frame(hk[["LFO5"]][["results"]])
+hk_lfo10<-data.frame(hk[["LFO10"]][["results"]])
 ### Functions ###
 par(mfrow = c(2, 2))
 
@@ -55,7 +64,7 @@ FunctionalRelationships<- function(data,peel,form,numvar){
   #nyears<-length(data$Y_rec)
 for(i in 1:peel){
 
-  trainingmin <-nyears - peel -
+  trainingmin <-nyears - peel 
   peeled<-trainingmin+ i 
   trainingdata<-  data[1:(nyears-i),]
   mod<-gam(as.formula(form), data= trainingdata)
@@ -141,7 +150,7 @@ plot_dat_yt<-yt_dat%>%select(year,Y_rec,unique(results_yt[[1]]$var))%>%
   mutate(Species="Yellowtail")
 
 ##### Sablefish #####
-npeel<-20
+npeel<-15
 formulas<-list()
 res<-data.frame()
 mohn<-data.frame()
@@ -193,15 +202,43 @@ plot_dat_ps<-ps_dat%>%select(year,Y_rec,unique(results_ps[[1]]$var))%>%
   rename(var=name)%>%
   mutate(Species="Petrale Sole")
 
+##### Hake #####
+modtemp <- arrange(hk_loo,RMSE_loo)[1,]%>%#select best model
+  select(var1, var2, var3, var4) #select variables. Way to do this with all 4 and filter out 4th when it isn't used?
+numvar<-sum(!is.na(modtemp))
+mod<- modtemp [1:numvar]
+smooth_terms <- paste("s(",mod, ", k = 3)", collapse = " + ")
+formula_str <- paste("Y_rec ~ ", gsub(" ", "",smooth_terms))
+model<-gam(as.formula(formula_str), data=hk_dat)
+full_edfs<-summary(model)$s.table[, "edf"]
+nyears<-length(hk_dat$year)
+
+ts_smooths <- data.frame()
+mohns <- data.frame()
+results_hk<- FunctionalRelationships(hk_dat, 15,formula_str,3)
+
+mohns_hk<- results_hk[[2]]%>%
+  rename(variable='row.names(xyy)')%>%
+  mutate(Species="Petrale Sole")
+
+plot_dat_hk<-hk_dat%>%select(year,Y_rec,unique(results_hk[[1]]$var))%>%
+  pivot_longer(cols=c(unique(results_hk[[1]]$var)))%>%
+  rename(var=name)%>%
+  mutate(Species="Hake")
+
+
+
 ##### Best Models Plot #####
 
 mohns_all <- mohns_ps%>%
   bind_rows(mohns_yt)%>%
-  bind_rows(mohns_sb)
+  bind_rows(mohns_sb)%>%
+  bind_rows(mohns_hk)
 
 plotdat_all <- plot_dat_yt%>%
   bind_rows(plot_dat_ps)%>%
-  bind_rows(plot_dat_sb)
+  bind_rows(plot_dat_sb)%>%
+  bind_rows(plot_dat_hk)
 
 mohns_yt_plot<-ggplot(data=mohns_yt,aes(x=termyr, y=mohns))+ #you could add observations onto this to show contrast
   #facet_wrap(~Species, nrow=3)+
@@ -230,6 +267,15 @@ mohns_ps_plot<-ggplot(data=mohns_ps,aes(x=termyr, y=mohns))+ #you could add obse
   xlab("Terminal Year")+
   ylim(c(-0.5, 0.2))+
   ggtitle("Petrale Sole")+
+  theme_bw()+
+  theme(plot.title = element_text(hjust = 0.5))
+
+mohns_hk_plot<-ggplot(data=mohns_hk,aes(x=termyr, y=mohns))+ #you could add observations onto this to show contrast
+  geom_point(aes(col=variable))+
+  ylab("Mohn's Rho")+
+  xlab("Terminal Year")+
+  ylim(c(-0.5, 0.2))+
+  ggtitle("Hake")+
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -264,11 +310,22 @@ sb_var<-ggplot()+ #you could add observations onto this to show contrast
   geom_line(data=data.frame(results_sb[[1]]),aes(x=x, y=fit,group=termyr,col=termyr))+
   theme_classic()
 
+hk_var<-ggplot()+ #you could add observations onto this to show contrast
+  facet_wrap(~var)+
+  geom_point(data=plot_dat_hk,alpha=0.6, aes( label=year,y=Y_rec, x=value, col=year))+
+  #geom_text(data=plot_dat_hk, aes( label=year,y=Y_rec, x=value,col=year),alpha=0.6,nudge_y = 0.05)+
+  xlim(c(-3,3))+
+  xlab("Standardized Value")+
+  ylab("Recruitment Deviations")+
+  geom_line(data=data.frame(results_hk[[1]]),aes(x=x, y=fit,group=termyr,col=termyr))+
+  theme_classic()
+
 yt_best <- ggarrange(mohns_yt_plot,yt_var, ncol = 2, nrow = 1)
 sb_best <- ggarrange(mohns_sb_plot,sb_var, ncol = 2, nrow = 1)
 ps_best <- ggarrange(mohns_ps_plot,ps_var, ncol = 2, nrow = 1)
+hk_best <- ggarrange(mohns_hk_plot,hk_var, ncol = 2, nrow = 1)
 
-all_best_loo <- ggarrange(yt_best, sb_best, ps_best, ncol = 1, nrow = 3)
+all_best_loo <- ggarrange(yt_best, sb_best, ps_best,hk_best, ncol = 1, nrow = 4)
 all_best_loo
 pdf(file = "Output/Figures/all_best_loo.pdf", width = 11, height = 8)
 all_best_loo
@@ -291,7 +348,7 @@ results_single_yt<- single_covs(yt_single_loo,yt_dat)
 
 mohns_yt<- results_single_yt[[2]]%>%
   mutate(Species="Yellowtail")
-npeel<-10
+npeel<-15
 rec_yt<-single_covs(yt_single_loo,yt_dat)
 plot.dat<-yt_dat%>%select(year,Y_rec,unique(rec_yt[[1]]$var))%>%
   pivot_longer(cols=c(unique(rec_yt[[1]]$var)))%>%
@@ -322,6 +379,25 @@ mohns10sb<- mohns_sb%>%
   summarize(mohns=sum(mohns)/length(unique(termyr)))%>%
   mutate(Species="Sablefish")
 
+##### Hake #####
+
+hk_single <- readRDS("Output/Data/hk_model_single_fits.rds")
+hk_single_loo<-data.frame(hk_single[["LOO"]][["results"]])
+res<-data.frame()
+mohn<-data.frame()
+results_single_hk<- single_covs(hk_single_loo,hk_dat)
+mohns_hk<- results_single_hk[[2]]%>%
+  mutate(Species="Hake")
+
+plot.dat<-hk_dat%>%select(year,Y_rec,unique(results_single_hk[[1]]$var))%>%
+  pivot_longer(cols=c(unique(results_single_hk[[1]]$var)))%>%
+  rename(var=name)
+
+mohns10hk<- mohns_hk%>%
+  group_by(variable)%>%
+  summarize(mohns=sum(mohns)/length(unique(termyr)))%>%
+  mutate(Species="Hake")
+
 ##### Petrale Sole #####
 
 ps_single <- readRDS("Output/Data/ps_model_single_fits.rds")
@@ -346,8 +422,11 @@ mohns10ps<- mohns_ps%>%
 
 mohns10<- mohns10ps%>%
   add_row(mohns10sb)%>%
-  add_row(mohns10yt)
-  
+  add_row(mohns10yt)%>%
+  add_row(mohns10hk)
+write_rds(mohns10, "Output/mohns.rds")
+
+
 mohns10yt_plot<-ggplot(mohns10yt, aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
   y =  reorder( variable,abs(mohns), .desc = TRUE),
@@ -405,28 +484,82 @@ mohns10ps_plot<-ggplot(mohns10ps, aes(
   theme(plot.title = element_text(hjust = 0.5))
 mohns10ps_plot
 
+mohns10hk_plot<-ggplot(mohns10hk, aes(
+  # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
+  y =  reorder( variable,abs(mohns), .desc = TRUE),
+  x =  abs(mohns),
+  fill=mohns)) +
+  ggtitle("Hake")+
+  # Note that we swapped x and y in aes() because of coord_flip()
+  # facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
+  geom_bar(stat = "identity", fill="Darkgreen") +
+  # Add the scale_y_reordered function to clean up the axis labels
+  scale_y_reordered() +
+  #coord_flip() +
+  xlim(c(-0,0.7))+
+  labs(x = "Mohn's Rho", y = "Predictor")+
+  #  scale_fill_gradient2(low ="Darkgreen", mid="white", high = "Darkgreen") +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5))
+mohns10hk_plot
 
-mohns_single_plot <- ggarrange(mohns10yt_plot, mohns10sb_plot, mohns10ps_plot, ncol = 3, nrow = 1)
+mohns_single_plot <- ggarrange(mohns10yt_plot, mohns10sb_plot, mohns10ps_plot, mohns10hk_plot,ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/mohns_single_plot.pdf", width = 8, height = 4)
+pdf(file = "Output/Figures/mohns_single_plot.pdf", width = 8, height = 6)
 mohns_single_plot
 dev.off()
 
-png(file = "Output/Figures/mohns_single_plot.png",width = 800, height = 400, res = 100)
+png(file = "Output/Figures/mohns_single_plot.png",width = 800, height = 600, res = 100)
 mohns_single_plot
 dev.off()
 
 
 #### RMSE Comparison ####
+results_single<-results_single_sb[[2]]%>%mutate(Species="Sablefish")%>%
+  bind_rows(results_single_ps[[2]]%>%mutate(Species="Petrale Sole"))%>%
+  bind_rows(results_single_yt[[2]]%>%mutate(Species="Yellowtail"))%>%
+  bind_rows(results_single_hk[[2]]%>%mutate(Species="Hake"))
+results_single_summ<-results_single%>%group_by(termyr, Species)%>%
+  summarise(mean=mean(-abs(mohns)), sd=sd(-abs(mohns)))
+ggplot(data=results_single, aes(x=termyr, y=-abs(mohns)))+
+ # geom_point(se = FALSE, aes(col=variable), col = 'grey')+
+  geom_smooth(aes(group=Species, col=Species))+
+  theme_classic()
+arrange(results_single%>%
+  group_by(Species,variable)%>%
+  summarise(mean=mean(mohns)), mean)
 
-ggplot(data=results_single_yt[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
-  geom_smooth(se = FALSE)+
+mohnstrend<- ggplot(data=results_single, aes(x=termyr, y=-abs(mohns)))+
+  geom_point(data=results_single_summ,aes(y=mean, x=termyr, col=Species))+
+  geom_smooth(aes(group=Species, col=Species))+#, method='gam')+
+  ylab("Mean Mohns Rho")+
+  xlab("Terminal Year")+
   theme_classic()
 
-ggplot(data=results_single_sb[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
-  geom_smooth(se = FALSE)+
+pdf(file = "Output/Figures/mohnstrend.pdf", width = 5, height = 5)
+mohnstrend
+dev.off()
+
+png(file = "Output/Figures/mohnstrend.png",width = 1500, height = 1500, res = 300)
+mohnstrend
+dev.off()
+
+ggplot(data=results_single_ps[[2]], aes(x=termyr, y=-abs(mohns)))+
+  geom_smooth(col='black', method='gam')+
   theme_classic()
 
-ggplot(data=results_single_ps[[2]], aes(x=termyr, y=-abs(mohns), col=variable))+
-  geom_smooth(se = FALSE)+
-  theme_classic()
+
+library(nlme)
+model <- lme(mohns ~ termyr, random = ~ 1 | Species, data = results_single)
+summary(model)
+
+m3 <- gam(mohns~s(termyr, by = as.factor(variable)), data=results_single_ps[[2]])
+summary(m3)
+plot(m3)
+
+m2 <- gam(mohns~s(termyr, by = as.factor(variable)), data=results_single_yt[[2]])
+summary(m2)
+plot(m2)
+
+
+m2 <- gam(mohns~s(termyr, by = as.factor(variable), k=4), data=results_single_hk[[2]])
