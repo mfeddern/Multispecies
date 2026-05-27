@@ -18,28 +18,42 @@ library(car)
 library(gratia)
 library(ggpubr)
 
+#### Removing unstable variables for sensitivity ####
+# Only run this if the full code has been run once. "mohns.rds" is output of the file 02_MohnsRho"
+
+unstable <-readRDS("Output/Data/Analysis Part 1/mohns.rds")%>%
+  filter(mohns > 0.1 | mohns < -0.1)
+
 #### Reading in the data ####
+yrfirst<- 1993
+yrlast<- 2018 #2010 
+corrcoef<-0.3 #0.5
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
+  select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
     filter(type=="Main")%>%
-  filter(Datatreatment=="2025 Final"&year>1993&year<=2018)
+  filter(Datatreatment=="2025 Final"&year>yrfirst&year<=yrlast)
+
 #yt_loo <- readRDS("Output/Data/yt_selection.rds")
 
-subsethk<-readRDS("Output/Data/hakesubset.rds")
+subsethk<-readRDS("Output/Data/Analysis Part 1/hakesubset.rds")
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
-  filter(type=="Main_RecrDev"&year>1993&year<=2018)%>%
-  select(all_of(subsethk), Y_rec, year, type, sd)
-
+  filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)%>%
+  select(all_of(subsethk), Y_rec, year, type, sd)%>%
+  select(-c(data.frame(unstable%>%filter(Species == "Hake"))$variable))#turn off when using all variables
+  
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
   filter(type=="Main_RecrDev")%>%
-  filter(year>1993&year<=2018)
+  select(-c(data.frame(unstable%>%filter(Species == "Petrale Sole"))$variable))%>% #turn off when using all variables
+  filter(year>yrfirst&year<=yrlast)
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
   filter(type=="Main_RecrDev")%>%
-  filter(year>1993&year<=2018)
+  select(-c(data.frame(unstable%>%filter(Species == "Sablefish"))$variable))%>% #turn off when using all variables
+  filter(year>yrfirst&year<=yrlast)
 
 #### Functions ####
 
@@ -442,64 +456,101 @@ train_start<-1
 
 #### Yellowtail ####
 
-yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), 0.5,3)
+yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), 0.3,3)
 yt_combinations<- yt_combinations_results$combinations
 yt_covariates<- yt_combinations_results$covariates
 yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
 yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
 yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
-yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,2018, 15,"Yellowtail")
+yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,yrlast, 15,"Yellowtail")
 yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo,"RW" = yt_results_rw)
 
-write_rds(yt_results, "Output/Data/yt_model_fits.rds")
-
+#write_rds(yt_results, "Output/Data/yt_model_fits.rds")
+write_rds(yt_results, "Output/Data/CorrelationReduced/yt_model_fits.rds")
 #single variable for Mohns and Marginal
 
-sb_combinations_results <- combinations(sb_dat, 0.5,1)
-sb_combinations<- sb_combinations_results$combinations
-sb_covariates<- sb_combinations_results$covariates
-sb_results_5<- LFO(sb_dat,sb_combinations, 5,"Yellowtail")
-sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Yellowtail")
-sb_results_loo<- model_fit(sb_combinations, sb_dat,"Yellowtail")
-sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo)
-write_rds(sb_results, "Output/Data/sb_model_single_fits_late.rds")
 
 #### Sablefish ####
 
-sb_combinations_results <- combinations(sb_dat,0.5,3)
+sb_combinations_results <- combinations(sb_dat,corrcoef,3)
 sb_combinations<- sb_combinations_results$combinations
 sb_covariates<- sb_combinations_results$covariates
 sb_results_5<- LFO(sb_dat,sb_combinations, 5,"Sablefish")
 sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Sablefish")
 sb_results_loo<- model_fit(sb_combinations, sb_dat,"Sablefish")
-sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,2018, 15,"Sablefish")
+sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,yrlast, 15,"Sablefish")
 sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo,"RW" = sb_results_rw)
 #write_rds(sb_results, "Output/Data/sb_model_single_fits.rds")
-write_rds(sb_results, "Output/Data/sb_model_fits.rds")
+#write_rds(sb_results, "Output/Data/sb_model_fits.rds")
+write_rds(sb_results, "Output/Data/CorrelationReduced/sb_model_fits.rds")
 
 
 #### Petrale Sole ####
 
-ps_combinations_results <- combinations(ps_dat,0.5,3)
+ps_combinations_results <- combinations(ps_dat,corrcoef,3)
 ps_combinations<- ps_combinations_results$combinations
 ps_covariates<- ps_combinations_results$covariates
 ps_results_5<- LFO(ps_dat,ps_combinations, 5,"Petrale Sole")
 ps_results_10<- LFO(ps_dat,ps_combinations, 10,"Petrale Sole")
 ps_results_loo<- model_fit(ps_combinations, ps_dat,"Petrale Sole")
-ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,2018, 15,"Petrale Sole")
+ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,yrlast, 15,"Petrale Sole")
 ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo,"RW" = ps_results_rw)
 #write_rds(ps_results, "Output/Data/ps_model_single_fits.rds")
-write_rds(ps_results, "Output/Data/ps_model_fits.rds")
+#write_rds(ps_results, "Output/Data/ps_model_fits.rds")
+write_rds(ps_results, "Output/Data/CorrelationReduced/ps_model_fits.rds")
 
 #### Hake ####
 
-hk_combinations_results <- combinations(hk_dat,0.5,3)
+hk_combinations_results <- combinations(hk_dat,corrcoef,3)
 hk_combinations<- hk_combinations_results$combinations
 hk_covariates<- hk_combinations_results$covariates
 hk_results_5<- LFO(hk_dat,hk_combinations, 5,"Hake")
 hk_results_10<- LFO(hk_dat,hk_combinations, 10,"Hake")
 hk_results_loo<- model_fit(hk_combinations, hk_dat,"Hake")
-hk_results_rw<- rw_model_fit(hk_combinations, hk_dat,2018, 15,"Hake")
+hk_results_rw<- rw_model_fit(hk_combinations, hk_dat,yrlast, 15,"Hake")
 hk_results <- list("LFO5" = hk_results_5, "LFO10" = hk_results_10,"LOO" = hk_results_loo,"RW" = hk_results_rw)
 #write_rds(hk_results, "Output/Data/hk_model_single_fits.rds")
-write_rds(hk_results, "Output/Data/hk_model_fits.rds")
+#write_rds(hk_results, "Output/Data/hk_model_fits.rds")
+write_rds(hk_results, "Output/Data/CorrelationReduced/hk_model_fits.rds")
+
+#### Single Covariates ####
+
+sb_combinations_results <- combinations(sb_dat, corrcoef,1)
+sb_combinations<- sb_combinations_results$combinations
+sb_covariates<- sb_combinations_results$covariates
+sb_results_5<- LFO(sb_dat,sb_combinations, 5,"Sablefish")
+sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Sablefish")
+sb_results_loo<- model_fit(sb_combinations, sb_dat,"Sablefish")
+sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo)
+#write_rds(sb_results, "Output/Data/sb_model_single_fits_late.rds")
+write_rds(sb_results, "Output/Data/CorrelationReduced/sb_model_single_fits.rds")
+
+hk_combinations_results <- combinations(hk_dat, corrcoef,1)
+hk_combinations<- hk_combinations_results$combinations
+hk_covariates<- hk_combinations_results$covariates
+hk_results_5<- LFO(hk_dat,hk_combinations, 5,"Hake")
+hk_results_10<- LFO(hk_dat,hk_combinations, 10,"Hake")
+hk_results_loo<- model_fit(hk_combinations, hk_dat,"Hake")
+hk_results <- list("LFO5" = hk_results_5, "LFO10" = hk_results_10,"LOO" = hk_results_loo)
+#write_rds(hk_results, "Output/Data/hk_model_single_fits_late.rds")
+write_rds(hk_results, "Output/Data/CorrelationReduced/hk_model_single_fits.rds")
+
+yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), corrcoef,1)
+yt_combinations<- yt_combinations_results$combinations
+yt_covariates<- yt_combinations_results$covariates
+yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
+yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
+yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
+yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo)
+#write_rds(yt_results, "Output/Data/yt_model_single_fits_late.rds")
+write_rds(yt_results, "Output/Data/CorrelationReduced/yt_model_single_fits.rds")
+
+ps_combinations_results <- combinations(ps_dat, corrcoef,1)
+ps_combinations<- ps_combinations_results$combinations
+ps_covariates<- ps_combinations_results$covariates
+ps_results_5<- LFO(ps_dat,ps_combinations, 5,"Sablefish")
+ps_results_10<- LFO(ps_dat,ps_combinations, 10,"Sablefish")
+ps_results_loo<- model_fit(ps_combinations, ps_dat,"Sablefish")
+ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo)
+#write_rds(ps_results, "Output/Data/ps_model_single_fits_late.rds")
+write_rds(ps_results, "Output/Data/CorrelationReduced/ps_model_single_fits.rds")

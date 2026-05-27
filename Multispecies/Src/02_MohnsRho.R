@@ -18,44 +18,51 @@ library(car)
 library(gratia)
 library(ggpubr)
 
+yrfirst<- 1993
+yrlast<- 2018 #2010
+npeel <- 15 #8 
 #### Reading in the data ####
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
-  filter(Datatreatment=="2025 Final"&year>1993&year<=2018)
-yt <- readRDS("Output/Data/yt_model_fits.rds")
+  filter(Datatreatment=="2025 Final"&year>yrfirst&year<=yrlast)
+#yt <- readRDS("Output/Data/yt_model_fits.rds")
+yt <- readRDS("Output/Data/CorrelationReduced/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_lfo5<-data.frame(yt[["LFO5"]][["results"]])
 yt_lfo10<-data.frame(yt[["LFO10"]][["results"]])
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
-  filter(type=="Main_RecrDev"&year>1993&year<=2018)
-sb <- readRDS("Output/Data/sb_model_fits.rds")
+  filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)
+#sb <- readRDS("Output/Data/sb_model_fits.rds")
+sb <- readRDS("Output/Data/CorrelationReduced/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_lfo5<-data.frame(sb[["LFO5"]][["results"]])
 sb_lfo10<-data.frame(sb[["LFO10"]][["results"]])
 
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
-  filter(type=="Main_RecrDev"&year>1993&year<=2018)
-ps <- readRDS("Output/Data/ps_model_fits.rds")
+  filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)
+#ps <- readRDS("Output/Data/ps_model_fits.rds")
+ps <- readRDS("Output/Data/CorrelationReduced/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_lfo5<-data.frame(ps[["LFO5"]][["results"]])
 ps_lfo10<-data.frame(ps[["LFO10"]][["results"]])
 
-subsethk<-readRDS("Output/Data/hakesubset.rds")
+subsethk<-readRDS("Output/Data/Analysis Part 1/hakesubset.rds")
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
-  filter(type=="Main_RecrDev"&year>1993&year<=2018)%>%
+  filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)%>%
   select(all_of(subsethk), Y_rec, year, type, sd)
-hk <- readRDS("Output/Data/hk_model_fits.rds")
+#hk <- readRDS("Output/Data/hk_model_fits.rds")
+hk <- readRDS("Output/Data/CorrelationReduced/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_lfo5<-data.frame(hk[["LFO5"]][["results"]])
 hk_lfo10<-data.frame(hk[["LFO10"]][["results"]])
 ### Functions ###
 par(mfrow = c(2, 2))
-
+nyears<-length(hk_dat$Y_rec)
 FunctionalRelationships<- function(data,peel,form,numvar){
   model<-gam(as.formula(form), data= data)
   full_edfs<-summary(model)$s.table[, "edf"]
@@ -135,7 +142,7 @@ smooth_terms <- paste("s(",mod, ", k = 3)", collapse = " + ")
 formula_str <- paste("Y_rec ~ ", gsub(" ", "",smooth_terms))
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_yt <- FunctionalRelationships(yt_dat, 15,formula_str,3)
+results_yt <- FunctionalRelationships(yt_dat, npeel,formula_str,3)
 model<-gam(as.formula(formula_str), data=yt_dat)
 full_edfs<-summary(model)$s.table[, "edf"]
 nyears<-length(yt_dat$year)
@@ -150,7 +157,7 @@ plot_dat_yt<-yt_dat%>%select(year,Y_rec,unique(results_yt[[1]]$var))%>%
   mutate(Species="Yellowtail")
 
 ##### Sablefish #####
-npeel<-15
+
 formulas<-list()
 res<-data.frame()
 mohn<-data.frame()
@@ -167,7 +174,7 @@ nyears<-length(sb_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_sb <- FunctionalRelationships(sb_dat, 15,formula_str,2)
+results_sb <- FunctionalRelationships(sb_dat, npeel,formula_str,3)
 
 mohns_sb<- results_sb[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -191,7 +198,7 @@ nyears<-length(ps_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_ps<- FunctionalRelationships(ps_dat, 15,formula_str,3)
+results_ps<- FunctionalRelationships(ps_dat, npeel,formula_str,3)
 
 mohns_ps<- results_ps[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -215,11 +222,11 @@ nyears<-length(hk_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_hk<- FunctionalRelationships(hk_dat, 15,formula_str,3)
+results_hk<- FunctionalRelationships(hk_dat, npeel,formula_str,2)
 
 mohns_hk<- results_hk[[2]]%>%
   rename(variable='row.names(xyy)')%>%
-  mutate(Species="Petrale Sole")
+  mutate(Species="Hake")
 
 plot_dat_hk<-hk_dat%>%select(year,Y_rec,unique(results_hk[[1]]$var))%>%
   pivot_longer(cols=c(unique(results_hk[[1]]$var)))%>%
@@ -270,7 +277,7 @@ mohns_ps_plot<-ggplot(data=mohns_ps,aes(x=termyr, y=mohns))+ #you could add obse
   theme_bw()+
   theme(plot.title = element_text(hjust = 0.5))
 
-mohns_hk_plot<-ggplot(data=mohns_hk,aes(x=termyr, y=mohns))+ #you could add observations onto this to show contrast
+mohns_hk_plot<-ggplot(data=mohns_hk,aes(x=termyr, y=-mohns))+ #you could add observations onto this to show contrast
   geom_point(aes(col=variable))+
   ylab("Mohn's Rho")+
   xlab("Terminal Year")+
@@ -327,11 +334,11 @@ hk_best <- ggarrange(mohns_hk_plot,hk_var, ncol = 2, nrow = 1)
 
 all_best_loo <- ggarrange(yt_best, sb_best, ps_best,hk_best, ncol = 1, nrow = 4)
 all_best_loo
-pdf(file = "Output/Figures/all_best_loo.pdf", width = 11, height = 8)
+pdf(file = "Output/Figures/CorrelationReduced/all_best_loo.pdf", width = 11, height = 8)
 all_best_loo
 dev.off()
 
-png(file = "Output/Figures/all_best_loo.png",width = 1100, height = 800, res = 100)
+png(file = "Output/Figures/CorrelationReduced/all_best_loo.png",width = 1100, height = 800, res = 100)
 all_best_loo
 dev.off()
 
@@ -339,7 +346,7 @@ dev.off()
 #### Single Variables ####
 
 ##### Yellowtail #####
-yt_single <- readRDS("Output/Data/yt_model_single_fits.rds")
+yt_single <- readRDS("Output/Data/CorrelationReduced/yt_model_single_fits.rds")
 yt_single_loo<-data.frame(yt_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -348,7 +355,7 @@ results_single_yt<- single_covs(yt_single_loo,yt_dat)
 
 mohns_yt<- results_single_yt[[2]]%>%
   mutate(Species="Yellowtail")
-npeel<-15
+
 rec_yt<-single_covs(yt_single_loo,yt_dat)
 plot.dat<-yt_dat%>%select(year,Y_rec,unique(rec_yt[[1]]$var))%>%
   pivot_longer(cols=c(unique(rec_yt[[1]]$var)))%>%
@@ -362,7 +369,7 @@ mohns10yt<- mohns_yt%>%
 
 ##### Sablefish #####
 
-sb_single <- readRDS("Output/Data/sb_model_single_fits.rds")
+sb_single <- readRDS("Output/Data/CorrelationReduced/sb_model_single_fits.rds")
 sb_single_loo<-data.frame(sb_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -381,7 +388,7 @@ mohns10sb<- mohns_sb%>%
 
 ##### Hake #####
 
-hk_single <- readRDS("Output/Data/hk_model_single_fits.rds")
+hk_single <- readRDS("Output/Data/CorrelationReduced/hk_model_single_fits.rds")
 hk_single_loo<-data.frame(hk_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -400,7 +407,7 @@ mohns10hk<- mohns_hk%>%
 
 ##### Petrale Sole #####
 
-ps_single <- readRDS("Output/Data/ps_model_single_fits.rds")
+ps_single <- readRDS("Output/Data/CorrelationReduced/ps_model_single_fits.rds")
 ps_single_loo<-data.frame(ps_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -424,7 +431,7 @@ mohns10<- mohns10ps%>%
   add_row(mohns10sb)%>%
   add_row(mohns10yt)%>%
   add_row(mohns10hk)
-write_rds(mohns10, "Output/mohns.rds")
+write_rds(mohns10, "Output/Data/CorrelationReduced/mohns.rds")
 
 
 mohns10yt_plot<-ggplot(mohns10yt, aes(
@@ -505,11 +512,11 @@ mohns10hk_plot
 
 mohns_single_plot <- ggarrange(mohns10yt_plot, mohns10sb_plot, mohns10ps_plot, mohns10hk_plot,ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/mohns_single_plot.pdf", width = 8, height = 6)
+pdf(file = "Output/Figures/CorrelationReduced/mohns_single_plot.pdf", width = 8, height = 6)
 mohns_single_plot
 dev.off()
 
-png(file = "Output/Figures/mohns_single_plot.png",width = 800, height = 600, res = 100)
+png(file = "Output/Figures/CorrelationReduced/mohns_single_plot.png",width = 800, height = 600, res = 100)
 mohns_single_plot
 dev.off()
 
@@ -536,11 +543,18 @@ mohnstrend<- ggplot(data=results_single, aes(x=termyr, y=-abs(mohns)))+
   xlab("Terminal Year")+
   theme_classic()
 
-pdf(file = "Output/Figures/mohnstrend.pdf", width = 5, height = 5)
+ggplot(data=results_single%>%filter(Species=='Yellowtail'), aes(x=termyr, y=-abs(mohns)))+
+  geom_point(aes(col=variable))+
+  geom_smooth(aes(col=variable),se = FALSE)+#, method='gam')+
+  ylab("Mean Mohns Rho")+
+  xlab("Terminal Year")+
+  theme_classic()
+
+pdf(file = "Output/Figures/CorrelationReduced/mohnstrend.pdf", width = 5, height = 5)
 mohnstrend
 dev.off()
 
-png(file = "Output/Figures/mohnstrend.png",width = 1500, height = 1500, res = 300)
+png(file = "Output/Figures/CorrelationReduced/mohnstrend.png",width = 1500, height = 1500, res = 300)
 mohnstrend
 dev.off()
 

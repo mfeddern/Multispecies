@@ -92,17 +92,17 @@ null_RMSE <-function(dat){
 
 #### Read In Data ####
 
-ps <- readRDS("Output/Data/ps_model_fits.rds")
+ps <- readRDS("Output/Data/CorrelationReduced/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
 
-sb <- readRDS("Output/Data/sb_model_fits.rds")
+sb <- readRDS("Output/Data/CorrelationReduced/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
 
-yt <- readRDS("Output/Data/yt_model_fits.rds")
+yt <- readRDS("Output/Data/CorrelationReduced/yt_model_fits.rds")
 
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
@@ -112,7 +112,7 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1993)
 
-hk <- readRDS("Output/Data/hk_model_fits.rds")
+hk <- readRDS("Output/Data/CorrelationReduced/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -211,7 +211,7 @@ marginals<-ps_marginals%>%
   add_row(sb_marginals)%>%
   add_row(yt_marginals)%>%
   add_row(hk_marginals)
-write_rds(marginals, "Output/Data/marginals.rds")
+write_rds(marginals, "Output/Data/CorrelationReduced/marginals.rds")
 
 #### Figures #### 
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
@@ -222,11 +222,11 @@ marginal_yt <- ggplot(yt_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.075))+
+  xlim(c(-.1,0.13))+
  facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "Mean Marginal Improvement RMSE", y = "") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.075)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.1)) +
   theme_classic()+
   theme(legend.position = "none")
 marginal_yt
@@ -237,11 +237,11 @@ marginal_sb <- ggplot(sb_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.075))+
+  xlim(c(-.1,0.13))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "", y = "Predictor") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.075)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.1)) +
   theme_classic()
 marginal_sb
 
@@ -251,11 +251,11 @@ marginal_ps <- ggplot(ps_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.075))+
+  xlim(c(-.1,0.13))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "", y = "") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.075)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen",limits=c(-.1,0.13)) +
   theme_classic()+
   theme(legend.position = "none")
 marginal_ps 
@@ -266,11 +266,11 @@ marginal_hk <- ggplot(hk_marginals, aes(
   x = total_rmse_st,
   fill = total_rmse_st
 )) +
-  xlim(c(-.1,0.075))+
+  xlim(c(-.1,0.13))+
   facet_grid(species ~ RMSE, scales = "free_y") + # Use free_y scale
   geom_bar(stat = "identity") +
   labs(x = "", y = "Predictor") +
-  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.075)) +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.1)) +
   theme_classic()
 marginal_hk
 
@@ -289,11 +289,11 @@ marginal<- ggarrange(marginal_ps,
 marginal
 
 
-pdf(file = "Output/Figures/MarginalMeanRMSE.pdf", width = 11, height = 11)
+pdf(file = "Output/Figures/CorrelationReduced/MarginalMeanRMSE.pdf", width = 14, height = 11)
 marginal 
 dev.off()
 
-png(file = "Output/Figures/MarginalMeanRMSE.png",width = 1100, height = 1100, res = 100)
+png(file = "Output/Figures/CorrelationReduced/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
 marginal 
 dev.off()
 
@@ -416,10 +416,10 @@ rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_
 ##### Figures #####
 rollingplot <- ggarrange(rollingplot_hk,rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/rollingplot.pdf", width =12, height = 8)
+pdf(file = "Output/Figures/CorrelationReduced/rollingplot.pdf", width =12, height = 8)
 rollingplot
 dev.off()
 
-png(file = "Output/Figures/rollingplot.png",width = 1200, height = 800, res = 100)
+png(file = "Output/Figures/CorrelationReduced/rollingplot.png",width = 1200, height = 800, res = 100)
 rollingplot
 dev.off()
