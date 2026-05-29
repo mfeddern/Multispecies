@@ -22,7 +22,7 @@ library(NatParksPalettes)
 col_dv<-natparks.pals("DeathValley", 7)
 names(NatParksPalettes)
 #### Read In Data ####
-ps <- readRDS("Output/Data/ShortenedTS/ps_model_fits.rds")
+ps <- readRDS("Output/Data/UnstableRemoved/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
@@ -34,7 +34,7 @@ ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDAR
   # filter(type=="Main_RecrDev")%>%
   filter(year>1994&year<=2018)
 
-sb <- readRDS("Output/Data/ShortenedTS/sb_model_fits.rds")
+sb <- readRDS("Output/Data/UnstableRemoved/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
@@ -46,7 +46,7 @@ sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STA
   filter(type=="Main_RecrDev")%>%
   filter(year>1994&year<=2018)
 
-yt <- readRDS("Output/Data/ShortenedTS/yt_model_fits.rds")
+yt <- readRDS("Output/Data/UnstableRemoved/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
 yt_LFO10<-data.frame(yt[["LFO10"]][["results"]])
@@ -59,7 +59,7 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   filter(Datatreatment=="2025 Final"&year>1994&year<=2018)
 
 subsethk<-readRDS("Output/Data/hakesubset.rds")
-hk <- readRDS("Output/Data/ShortenedTS/hk_model_fits.rds")
+hk <- readRDS("Output/Data/UnstableRemoved/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -297,11 +297,11 @@ hk_ts<- annotate_figure(top="Hake", bottom="Year",
 
 all_ts<- ggarrange(ps_ts, sb_ts,yt_ts, hk_ts,ncol = 1, nrow = 4)
 all_ts
-pdf(file = "Output/Figures/ShortenedTS/all_ts.pdf", width =9, height =12)
+pdf(file = "Output/Figures/UnstableRemoved/all_ts.pdf", width =9, height =12)
 all_ts
 dev.off()
 
-png(file = "Output/Figures/ShortenedTS/all_ts.png",width = 900, height = 1200, res = 100)
+png(file = "Output/Figures/UnstableRemoved/all_ts.png",width = 900, height = 1200, res = 100)
 all_ts
 dev.off()
 
@@ -355,8 +355,36 @@ full_table_hk<- hk_loo%>%
   left_join(hk_lfo10%>%
               rename(RMSE10=RMSE)%>%
               select(ModelID, RMSE10))
-write.csv(full_table_yt, "Output/Data/ShortenedTS/yt_table.csv")
-write.csv(full_table_ps, "Output/Data/ShortenedTS/ps_table.csv")
-write.csv(full_table_sb, "Output/Data/ShortenedTS/sb_table.csv")
-write.csv(full_table_hk, "Output/Data/ShortenedTS/hk_table.csv")
+write.csv(full_table_yt, "Output/Data/UnstableRemoved/yt_table.csv")
+write.csv(full_table_ps, "Output/Data/UnstableRemoved/ps_table.csv")
+write.csv(full_table_sb, "Output/Data/UnstableRemoved/sb_table.csv")
+write.csv(full_table_hk, "Output/Data/UnstableRemoved/hk_table.csv")
 
+unstable <-read.csv("Output/Data/UnstableRemoved/ustablevariables_1.csv")%>%
+  filter(nspecies>1)
+
+total<-unstable%>%
+  count(Type)
+
+total_type<-unstable%>%
+  group_by(Type)%>%
+  summarise(mean=mean(TotalType))%>%
+  left_join(total)%>%
+  mutate(rate=n/mean)
+
+count <-ggplot(total_type, aes(y = n, x=Type)) +
+  geom_bar(stat = "identity")+
+  theme_classic()
+rate<-ggplot(total_type, aes(y = rate, x=Type)) +
+  geom_bar(stat = "identity")+
+  theme_classic()
+
+countrate<- ggarrange(count, rate, ncol = 2)
+
+pdf(file = "Output/Figures/UnstableRemoved/countrate.pdf", width =8, height = 2.5)
+countrate
+dev.off()
+
+png(file = "Output/Figures/UnstableRemoved/countrate.png",width = 800, height = 250, res = 100)
+countrate
+dev.off()

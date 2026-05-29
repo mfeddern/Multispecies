@@ -1,0 +1,29 @@
+variable,mohns,Species,Type,Lifestage,TotalType,nspecies
+DDbjuv.a,-0.284635157,Petrale Sole,degree day,benthic juvenile,25,4
+DDbjuv.b,-0.172770153,Petrale Sole,degree day,benthic juvenile,25,4
+DDegg1,0.556940798,Petrale Sole,degree day,egg,25,4
+DDegg2,0.50678413,Petrale Sole,degree day,egg,25,4
+LSTegg1,0.288461941,Petrale Sole,along-shelf transport,egg,18,4
+LSTpjuv,-0.1082466,Petrale Sole,along-shelf transport,pelagic juvenile,18,4
+Tpre.b,-0.147562377,Petrale Sole,temperature,preconditioning,7,4
+CSTbjuv,0.368677761,Sablefish,cross-shelf transport,benthic juvenile,20,4
+CSTlarv,0.216066784,Sablefish,cross-shelf transport,larval,20,4
+CSTpjuv,-0.123316122,Sablefish,cross-shelf transport,pelagic juvenile,20,4
+DDbjuv,-0.274969226,Sablefish,degree day,benthic juvenile,25,4
+DDegg,-0.285268383,Sablefish,degree day,egg,25,4
+DDpre,0.246452403,Sablefish,degree day,preconditioning,25,4
+DDyolk,-0.286120785,Sablefish,degree day,yolk-sac,25,4
+LSTyolk,0.321525961,Sablefish,along-shelf transport,yolk-sac,18,4
+BeutiSTIpjuv,0.219906644,Yellowtail,upwelling,pelagic juvenile,4,1
+CSTpjuv,0.41889524,Yellowtail,cross-shelf transport,pelagic juvenile,20,4
+CutiTUMIpjuv,0.146463884,Yellowtail,upwelling,pelagic juvenile,4,1
+LSTlarv,-0.113790452,Yellowtail,along-shelf transport,larval,18,4
+CSTeggs,-0.315321933,Hake,cross-shelf transport,egg,20,4
+CSTpjuvs,-0.165170499,Hake,cross-shelf transport,pelagic juvenile,20,4
+DDpre,-0.219789654,Hake,degree day,preconditioning,25,4
+DDyolk,0.185490363,Hake,degree day,yolk-sac,25,4
+MLDlate,-0.171295089,Hake,mixed-layer depth,late,10,3
+PUTlate,-0.181138134,Hake,poleward undercurrent,late,4,1
+SSHjac.pre,-0.188693865,Hake,sea surface height,preconditioning,7,1
+SSHmss,-0.14730647,Hake,sea surface height,mss,7,1
+Tpre,-0.219789654,Hake,temperature,preconditioning,7,4

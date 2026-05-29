@@ -92,17 +92,17 @@ null_RMSE <-function(dat){
 
 #### Read In Data ####
 
-ps <- readRDS("Output/Data/CorrelationReduced/ps_model_fits.rds")
+ps <- readRDS("Output/Data/UnstableRemoved/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
 
-sb <- readRDS("Output/Data/CorrelationReduced/sb_model_fits.rds")
+sb <- readRDS("Output/Data/UnstableRemoved/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
 
-yt <- readRDS("Output/Data/CorrelationReduced/yt_model_fits.rds")
+yt <- readRDS("Output/Data/UnstableRemoved/yt_model_fits.rds")
 
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
@@ -110,9 +110,10 @@ yt_LFO10<-data.frame(yt[["LFO10"]][["results"]])
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
+  select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
   filter(Datatreatment=="2025 Final"&year>1993)
 
-hk <- readRDS("Output/Data/CorrelationReduced/hk_model_fits.rds")
+hk <- readRDS("Output/Data/UnstableRemoved/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -211,7 +212,7 @@ marginals<-ps_marginals%>%
   add_row(sb_marginals)%>%
   add_row(yt_marginals)%>%
   add_row(hk_marginals)
-write_rds(marginals, "Output/Data/CorrelationReduced/marginals.rds")
+write_rds(marginals, "Output/Data/UnstableRemoved/marginals.rds")
 
 #### Figures #### 
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
@@ -289,11 +290,11 @@ marginal<- ggarrange(marginal_ps,
 marginal
 
 
-pdf(file = "Output/Figures/CorrelationReduced/MarginalMeanRMSE.pdf", width = 14, height = 11)
+pdf(file = "Output/Figures/UnstableRemoved/MarginalMeanRMSE.pdf", width = 14, height = 11)
 marginal 
 dev.off()
 
-png(file = "Output/Figures/CorrelationReduced/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
+png(file = "Output/Figures/UnstableRemoved/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
 marginal 
 dev.off()
 
@@ -416,10 +417,10 @@ rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_
 ##### Figures #####
 rollingplot <- ggarrange(rollingplot_hk,rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/CorrelationReduced/rollingplot.pdf", width =12, height = 8)
+pdf(file = "Output/Figures/UnstableRemoved/rollingplot.pdf", width =12, height = 8)
 rollingplot
 dev.off()
 
-png(file = "Output/Figures/CorrelationReduced/rollingplot.png",width = 1200, height = 800, res = 100)
+png(file = "Output/Figures/UnstableRemoved/rollingplot.png",width = 1200, height = 800, res = 100)
 rollingplot
 dev.off()

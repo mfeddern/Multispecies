@@ -59,6 +59,8 @@ We repeated the same methods from the March analysis but for all species the mod
 
 ### Findings
 
+**This is not more consistent BUT the problem seems to shift. The issue here seems to be time series length rather than spanning a regime (training on 7 years of data and predicting 10 or training on 13 years of data and predicting 5 simply does not work well)**
+
 Overall, leave-future out criteria still performs poorly when applied to the 1993 - 2010 time period but this poor performance seems to be driven by short time series length rather than spanning seemingly distinct time periods. Additionally, the variables that are unstable from 1993 - 2018 tend to also be unstable over the 1993 - 2010 period. There seems to be two factors that jeopardize the utility of LFO in these circumstances. The first is whether or not there is an apparent regime shift in the oceanographic data and the second is time series length. Regardless of these two circumstances, variables that are unstable for a short time window without a regime shift seem to also be unstable in longer time series when a regime shift is included. Much like including the full time series, the best models, and the variables included in the best models, vary by selection criteria [@tbl-ps] - [@tbl-hk]
 
 ![Marginal mean improvement of RMSE for each oceanographic driver and each selecetion criteria (leave-future-out last 10 years, LFO10; leave-future-out last 5 years, LFO5; leave-one-out all years)](Output/Figures/ShortenedTS/MarginalMeanRMSE.png){#fig-rmse}
@@ -269,6 +271,8 @@ We repeated the same methods from the March analysis but for all species the mod
 
 ### Findings
 
+**Overall this does not help. The issues we are encountering is not because of correlations across time series, at least not when models are restricted to only 3 covariates and a correlation coefficient of 0.5**
+
 As expected, reducing the correlation coefficient has no impact on the highest ranked variables based on marginal mean improvement of RMSE and nor does it impact the ranking of stability. This is expected because of the nature of the ways these variables are calculated (either using models for only one variable based on stability or by reducing the impact of redundant variables in the case of marginal mean improvement RMSE).
 
 But, we do see subtle differences in the rolling window analysis and the highest ranked models. Overall, this seems to be an ineffective way to minimize issues with predictive capacity indicating that overfitting or redundancy in oceanographic time series does not seem to be the primary issue. 
@@ -465,9 +469,39 @@ kable(hk_table)%>%
   column_spec(column = 1, width = "5cm") 
 ```
 :::
+
 {{< pagebreak >}}
 
 ## If we remove "unstable" variables, is predictive capacity more consistent across variables?
 
 ### Methods
-To do this analysis we fit the analysis approach we used in March (full time series 1994 - 2018; correlation coefficient of 0.5) and removed all variables that had a Mohn's rho of 0.15 (see @fig-mohns for reference). 
+To do this analysis we fit the analysis approach we used in March (full time series 1994 - 2018; correlation coefficient of 0.5) and removed all variables that had a Mohn's rho of 0.1 (see @fig-mohns for reference). This reduced the number of variables used for petrale sole by 7, for hake by 9, for yellowtail by 4, and for sablefish by 8.
+
+### Findings
+
+**Overall this does seem to produce clearer "winners" and "losers" than using all of the variables but selection criteria are still not consistent (with the exception of hake). There may be certain "types" variables that are inherently less stable than others (i.e., degree days)**
+
+Interestingly, yellowtail had the most stable best model in all analyses but also had the least number of unstable predictors. We hypothesiszed that this may be due to yellowtail having basin-scale time series (ONI and CUTI) as covariates but it also seems that overall there was just more stability across all of the time series. One other possible mechanism here is that yellowtail seems to have the smallest spatial range over which these covariates are summarized (exclusively within the NCC). Maybe characterizing them over such large spatial ranges contributes to instability?
+
+When unstable variables are excluded, it becomes much more obvious which variables both provide stability (highly ranked in marginal mean improvement RMSE for LOO) and which also provide improved predictive capacity on 5 and 10 year time horizons (MMI RMSE for leave-future-out). Of the 4 species, there is at least 1 highly ranked LOO covariate that also provides improved predictive capacity (@fig-rmseunstable). 
+
+There are also some general patterns of which types of variables that were considered for more than 1 species are unstable. For example, degree day variables are unstable 40% of the time when considered as a covariate of recruitment. **(NOTE TO SELF add in basin-scale indices once I add them to hake, consider months of year?)**
+
+![Marginal mean improvement of RMSE for each oceanographic driver and each selecetion criteria (leave-future-out last 10 years, LFO10; leave-future-out last 5 years, LFO5; leave-one-out all years)](Output/Figures/UnstableRemoved/MarginalMeanRMSE.png){#fig-rmseunstable}
+
+![For types of covariates considered for more than one species, the total number (n) of covariates that were considered unstable and the rate (number unstable / total number considered)](Output/Figures/UnstableRemoved/countrate.png){#fig-countrate}
+
+## If we used a "combined" selection criteria, what do the best models look like?
+### Methods
+Add RMSE for all 3 criteria together and selenct model based on combined RMSE. 
+
+## Are basin scale variables more stable than these local variables?
+### Methods
+Add Hake variables as listed in the notes
+
+## Does seasonality impact stability?
+
+## Are there patterns in the relative importance of variables through time?
+
+### Methods
+DFA on rolling window

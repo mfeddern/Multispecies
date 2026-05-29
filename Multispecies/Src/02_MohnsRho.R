@@ -25,9 +25,10 @@ npeel <- 15 #8
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
   select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
   filter(type=="Main")%>%
+  #select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
   filter(Datatreatment=="2025 Final"&year>yrfirst&year<=yrlast)
 #yt <- readRDS("Output/Data/yt_model_fits.rds")
-yt <- readRDS("Output/Data/CorrelationReduced/yt_model_fits.rds")
+yt <- readRDS("Output/Data/UnstableRemoved/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_lfo5<-data.frame(yt[["LFO5"]][["results"]])
 yt_lfo10<-data.frame(yt[["LFO10"]][["results"]])
@@ -36,7 +37,7 @@ sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STA
   select(-c(X))%>%
   filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)
 #sb <- readRDS("Output/Data/sb_model_fits.rds")
-sb <- readRDS("Output/Data/CorrelationReduced/sb_model_fits.rds")
+sb <- readRDS("Output/Data/UnstableRemoved/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_lfo5<-data.frame(sb[["LFO5"]][["results"]])
 sb_lfo10<-data.frame(sb[["LFO10"]][["results"]])
@@ -45,7 +46,7 @@ ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDAR
   select(-c(X, year.1))%>%
   filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)
 #ps <- readRDS("Output/Data/ps_model_fits.rds")
-ps <- readRDS("Output/Data/CorrelationReduced/ps_model_fits.rds")
+ps <- readRDS("Output/Data/UnstableRemoved/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_lfo5<-data.frame(ps[["LFO5"]][["results"]])
 ps_lfo10<-data.frame(ps[["LFO10"]][["results"]])
@@ -56,7 +57,7 @@ hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.
   filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)%>%
   select(all_of(subsethk), Y_rec, year, type, sd)
 #hk <- readRDS("Output/Data/hk_model_fits.rds")
-hk <- readRDS("Output/Data/CorrelationReduced/hk_model_fits.rds")
+hk <- readRDS("Output/Data/UnstableRemoved/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_lfo5<-data.frame(hk[["LFO5"]][["results"]])
 hk_lfo10<-data.frame(hk[["LFO10"]][["results"]])
@@ -174,7 +175,7 @@ nyears<-length(sb_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_sb <- FunctionalRelationships(sb_dat, npeel,formula_str,3)
+results_sb <- FunctionalRelationships(sb_dat, npeel,formula_str,2)
 
 mohns_sb<- results_sb[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -222,7 +223,7 @@ nyears<-length(hk_dat$year)
 
 ts_smooths <- data.frame()
 mohns <- data.frame()
-results_hk<- FunctionalRelationships(hk_dat, npeel,formula_str,2)
+results_hk<- FunctionalRelationships(hk_dat, npeel,formula_str,3)
 
 mohns_hk<- results_hk[[2]]%>%
   rename(variable='row.names(xyy)')%>%
@@ -334,11 +335,11 @@ hk_best <- ggarrange(mohns_hk_plot,hk_var, ncol = 2, nrow = 1)
 
 all_best_loo <- ggarrange(yt_best, sb_best, ps_best,hk_best, ncol = 1, nrow = 4)
 all_best_loo
-pdf(file = "Output/Figures/CorrelationReduced/all_best_loo.pdf", width = 11, height = 8)
+pdf(file = "Output/Figures/UnstableRemoved/all_best_loo.pdf", width = 11, height = 8)
 all_best_loo
 dev.off()
 
-png(file = "Output/Figures/CorrelationReduced/all_best_loo.png",width = 1100, height = 800, res = 100)
+png(file = "Output/Figures/UnstableRemoved/all_best_loo.png",width = 1100, height = 800, res = 100)
 all_best_loo
 dev.off()
 
@@ -346,7 +347,7 @@ dev.off()
 #### Single Variables ####
 
 ##### Yellowtail #####
-yt_single <- readRDS("Output/Data/CorrelationReduced/yt_model_single_fits.rds")
+yt_single <- readRDS("Output/Data/UnstableRemoved/yt_model_single_fits.rds")
 yt_single_loo<-data.frame(yt_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -369,7 +370,7 @@ mohns10yt<- mohns_yt%>%
 
 ##### Sablefish #####
 
-sb_single <- readRDS("Output/Data/CorrelationReduced/sb_model_single_fits.rds")
+sb_single <- readRDS("Output/Data/UnstableRemoved/sb_model_single_fits.rds")
 sb_single_loo<-data.frame(sb_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -388,7 +389,7 @@ mohns10sb<- mohns_sb%>%
 
 ##### Hake #####
 
-hk_single <- readRDS("Output/Data/CorrelationReduced/hk_model_single_fits.rds")
+hk_single <- readRDS("Output/Data/UnstableRemoved/hk_model_single_fits.rds")
 hk_single_loo<-data.frame(hk_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -407,7 +408,7 @@ mohns10hk<- mohns_hk%>%
 
 ##### Petrale Sole #####
 
-ps_single <- readRDS("Output/Data/CorrelationReduced/ps_model_single_fits.rds")
+ps_single <- readRDS("Output/Data/UnstableRemoved/ps_model_single_fits.rds")
 ps_single_loo<-data.frame(ps_single[["LOO"]][["results"]])
 res<-data.frame()
 mohn<-data.frame()
@@ -431,7 +432,7 @@ mohns10<- mohns10ps%>%
   add_row(mohns10sb)%>%
   add_row(mohns10yt)%>%
   add_row(mohns10hk)
-write_rds(mohns10, "Output/Data/CorrelationReduced/mohns.rds")
+write_rds(mohns10, "Output/Data/UnstableRemoved/mohns.rds")
 
 
 mohns10yt_plot<-ggplot(mohns10yt, aes(
@@ -512,11 +513,11 @@ mohns10hk_plot
 
 mohns_single_plot <- ggarrange(mohns10yt_plot, mohns10sb_plot, mohns10ps_plot, mohns10hk_plot,ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/CorrelationReduced/mohns_single_plot.pdf", width = 8, height = 6)
+pdf(file = "Output/Figures/UnstableRemoved/mohns_single_plot.pdf", width = 8, height = 6)
 mohns_single_plot
 dev.off()
 
-png(file = "Output/Figures/CorrelationReduced/mohns_single_plot.png",width = 800, height = 600, res = 100)
+png(file = "Output/Figures/UnstableRemoved/mohns_single_plot.png",width = 800, height = 600, res = 100)
 mohns_single_plot
 dev.off()
 
@@ -550,11 +551,11 @@ ggplot(data=results_single%>%filter(Species=='Yellowtail'), aes(x=termyr, y=-abs
   xlab("Terminal Year")+
   theme_classic()
 
-pdf(file = "Output/Figures/CorrelationReduced/mohnstrend.pdf", width = 5, height = 5)
+pdf(file = "Output/Figures/UnstableRemoved/mohnstrend.pdf", width = 5, height = 5)
 mohnstrend
 dev.off()
 
-png(file = "Output/Figures/CorrelationReduced/mohnstrend.png",width = 1500, height = 1500, res = 300)
+png(file = "Output/Figures/UnstableRemoved/mohnstrend.png",width = 1500, height = 1500, res = 300)
 mohnstrend
 dev.off()
 
