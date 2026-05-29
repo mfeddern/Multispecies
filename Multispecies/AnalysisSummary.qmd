@@ -493,11 +493,13 @@ There are also some general patterns of which types of variables that were consi
 
 ## If we used a "combined" selection criteria, what do the best models look like?
 ### Methods
-Add RMSE for all 3 criteria together and selenct model based on combined RMSE. 
+Add RMSE for all 3 criteria together and select model based on combined RMSE. 
 
 ## Are basin scale variables more stable than these local variables?
 ### Methods
 Add Hake variables as listed in the notes
+
+# TO DO
 
 ## Does seasonality impact stability?
 
