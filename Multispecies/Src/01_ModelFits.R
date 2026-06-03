@@ -21,7 +21,7 @@ library(ggpubr)
 #### Removing unstable variables for sensitivity ####
 # Only run this if the full code has been run once. "mohns.rds" is output of the file 02_MohnsRho"
 
-unstable <-readRDS("Output/Data/Analysis Part 1/mohns.rds")%>%
+unstable <-readRDS("Output/Data/AnalysisPart1/mohns.rds")%>%
   filter(mohns > 0.1 | mohns < -0.1)
 
 #### Reading in the data ####
@@ -36,7 +36,7 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
 
 #yt_loo <- readRDS("Output/Data/yt_selection.rds")
 
-subsethk<-readRDS("Output/Data/Analysis Part 1/hakesubset.rds")
+subsethk<-readRDS("Output/Data/AnalysisPart1/hakesubset.rds")
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
   filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)%>%
@@ -98,7 +98,7 @@ combinations <- function(data,threshold,maxcovar){
   return(combs)
   
 }
-model_fit <- function(combinations, dat){
+model_fit <- function(combinations, dat, species_name){
   models <- list()
   results <- data.frame()
   predicted <- data.frame()
@@ -129,10 +129,20 @@ model_fit <- function(combinations, dat){
                      data = dat)
     predict_mod <- predict(gam_model)
     # keep in mind RMSE is weird for binomial things
-    rmse_loo <- sqrt(mean((dat$Y_rec - predictions)^2, na.rm=T))
-    rmse <- sqrt(mean((dat$Y_rec -  predict_mod)^2, na.rm=T))
+    rmse_loo <- sqrt(sum((dat$Y_rec - predictions)^2)/length(predictions))
+    rmse <- sqrt(sum((dat$Y_rec -  predict_mod)^2)/length(predict_mod))
+    
     r2<-summary(gam_model)$r.sq
     dev.expl<-summary(gam_model)$dev.expl
+    
+    # calculate out of sample likelihood
+    scale_param <-sd(dat$Y_rec-predictions)
+    #gam_model$sig2
+    log_lik_vector <- dnorm(dat$Y_rec, mean = predictions, sd = scale_param, log = TRUE)
+    #use to calculate CV
+    CV=sum(-2*log_lik_vector)
+    #use CV to calculate score 
+    S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
     # Extract variable names
     var_names <- gsub("s\\(([^,]+),.*", "\\1", combinations[[i]])
     # Store results with variable names padded to ensure there are always 3 columns
@@ -146,9 +156,12 @@ model_fit <- function(combinations, dat){
     models[[i]] <- gam_model
     results <- rbind(results, data.frame(
       ModelID = i,
+      species=species_name,
       AIC = AIC(gam_model),
       RMSE_loo = round(rmse_loo,3),
       RMSE = round(rmse,3),
+      S = round(S,3),
+      CV=round(CV,3),
       rsq_full=round(r2,2),
       dev.ex=round(dev.expl,4),
       Hit=Hit,

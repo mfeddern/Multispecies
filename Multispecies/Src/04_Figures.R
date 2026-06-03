@@ -80,21 +80,21 @@ hk_combined<- hk_loo%>%select(ModelID, species, AIC, RMSE_loo, var1, var2, var3,
   rename(RMSE_5=RMSE))%>%
   left_join(hk_LFO10%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
               rename(RMSE_10=RMSE))%>%
-  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5)%>%arrange(RMSE_combined)
+  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5+RMSE_10)%>%arrange(RMSE_combined)
 
 yt_combined<- yt_loo%>%select(ModelID, species, AIC, RMSE_loo, var1, var2, var3, var4)%>%
   left_join(yt_LFO5%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
               rename(RMSE_5=RMSE))%>%
   left_join(yt_LFO10%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
               rename(RMSE_10=RMSE))%>%
-  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5)%>%arrange(RMSE_combined)
+  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5+RMSE_10+RMSE_10)%>%arrange(RMSE_combined)
 
 ps_combined<- ps_loo%>%select(ModelID, species, AIC, RMSE_loo, var1, var2, var3, var4)%>%
   left_join(ps_LFO5%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
               rename(RMSE_5=RMSE))%>%
   left_join(ps_LFO10%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
               rename(RMSE_10=RMSE))%>%
-  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5)%>%arrange(RMSE_combined)
+  mutate(RMSE_combined=RMSE_loo*loo_weight+RMSE_5+RMSE_10)%>%arrange(RMSE_combined)
 
 sb_combined<- sb_loo%>%select(ModelID, species, AIC, RMSE_loo, var1, var2, var3, var4)%>%
   left_join(sb_LFO5%>%select(ModelID, species, RMSE, var1, var2, var3, var4)%>%
@@ -119,7 +119,7 @@ ps_combined_pred<-ps_loo_pred%>%rename(pred_loo=pred)%>%
 yt_combined_pred<-yt_loo_pred%>%rename(pred_loo=pred)%>%
   left_join(yt_LFO10_pred%>%rename(pred_10=pred))%>%
   left_join(yt_LFO5_pred%>%rename(pred_5=pred))
-#### Time SeriesRMSE#### Time Series ####
+#### Time Series ####
 ##### Yellowtail #####
 yt_baseline <-  null_RMSE(yt_dat)
 
@@ -193,6 +193,8 @@ yt_ensemble_plot<-ggplot()+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
+  #ylim(c(-4,4))+
+  xlim(c(2008,2019))+
   ggtitle("Yellowtail")+
   theme_bw()+  
   theme(plot.title = element_text(hjust = 0.5))
@@ -281,6 +283,9 @@ sb_ensemble_plot<-ggplot()+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
+ # ylim(c(-4,4))+
+  xlim(c(2008,2019))+
+  
   ggtitle("Sablefish")+
   theme_bw()+  
   theme(plot.title = element_text(hjust = 0.5))
@@ -358,6 +363,9 @@ ps_ensemble_plot<-ggplot()+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
   xlab("")+
+ # ylim(c(-4,4))+
+  xlim(c(2008,2019))+
+  
   ggtitle("Petrale Sole")+
   theme_bw()+  
   theme(plot.title = element_text(hjust = 0.5))
@@ -438,8 +446,11 @@ hk_ensemble_plot<-ggplot()+
   geom_point(data=pred_hk_ensemble, aes(y=pred_ensemble, x=year), col=col_dv[1], pch=17, cex=2)+
   geom_hline(yintercept = 0, lty=2)+
   ylab("")+
+  xlim(c(2008,2019))+
+  
   xlab("")+
   ggtitle("Hake")+
+  #ylim(c(-5,4))+
   theme_bw()+  
   theme(plot.title = element_text(hjust = 0.5))
 
@@ -458,7 +469,7 @@ dev.off()
 all_ensemble<- ggarrange(ps_ensemble_plot, sb_ensemble_plot,yt_ensemble_plot,hk_ensemble_plot,ncol = 2, nrow = 2)
 all_ensemble
 pdf(file = "Output/Figures/Combined/all_ensemble.pdf", width =9, height =7)
-all_ts
+all_ensemble
 dev.off()
 
 png(file = "Output/Figures/Combined/all_ensemble.png",width = 900, height = 700, res = 100)

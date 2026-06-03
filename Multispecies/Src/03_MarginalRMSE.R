@@ -92,17 +92,17 @@ null_RMSE <-function(dat){
 
 #### Read In Data ####
 
-ps <- readRDS("Output/Data/UnstableRemoved/ps_model_fits.rds")
+ps <- readRDS("Output/Data/AnalysisPart1/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
 
-sb <- readRDS("Output/Data/UnstableRemoved/sb_model_fits.rds")
+sb <- readRDS("Output/Data/AnalysisPart1/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
 
-yt <- readRDS("Output/Data/UnstableRemoved/yt_model_fits.rds")
+yt <- readRDS("Output/Data/AnalysisPart1/yt_model_fits.rds")
 
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
@@ -113,7 +113,7 @@ yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv")
   select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
   filter(Datatreatment=="2025 Final"&year>1993)
 
-hk <- readRDS("Output/Data/UnstableRemoved/hk_model_fits.rds")
+hk <- readRDS("Output/Data/AnalysisPart1/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -137,6 +137,7 @@ relevel_yt_loo<-yt_marginals%>%
   arrange(total_rmse_st)
   
 yt_marginals$cov <- factor(yt_marginals$cov, levels =relevel_yt_loo$cov)
+
 #### Sablefish ####
 sb_covariates<-colnames(sb_dat%>%select(-c(Y_rec, sd, type,  year)))
 
@@ -212,12 +213,22 @@ marginals<-ps_marginals%>%
   add_row(sb_marginals)%>%
   add_row(yt_marginals)%>%
   add_row(hk_marginals)
-write_rds(marginals, "Output/Data/UnstableRemoved/marginals.rds")
+combined_marginal<- marginals%>%
+  group_by(cov, species)%>%
+  summarise(total_rmse_st=mean(total_rmse_st))%>%
+  mutate(RMSE="Combined")
+
+all_marginals<-marginals%>%
+  bind_rows(combined_marginal)%>%
+  mutate(cov_species=paste(cov,"_",species))
+
+write_rds(all_marginals, "Output/Data/AnalysisPart1/marginals.rds")
+
 
 #### Figures #### 
 cols<- c('#dd4124',"#edd746",'#7cae00','#0f85a0')
 
-marginal_yt <- ggplot(yt_marginals, aes(
+marginal_yt <- ggplot(all_marginals%>%filter(species=="Yellowtail"), aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
   y =cov,
   x = total_rmse_st,
@@ -232,7 +243,7 @@ marginal_yt <- ggplot(yt_marginals, aes(
   theme(legend.position = "none")
 marginal_yt
 
-marginal_sb <- ggplot(sb_marginals, aes(
+marginal_sb <- ggplot(all_marginals%>%filter(species=="Sablefish"), aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
   y =cov,
   x = total_rmse_st,
@@ -246,7 +257,7 @@ marginal_sb <- ggplot(sb_marginals, aes(
   theme_classic()
 marginal_sb
 
-marginal_ps <- ggplot(ps_marginals, aes(
+marginal_ps <- ggplot(all_marginals%>%filter(species=="Petrale Sole"), aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
   y =cov,
   x = total_rmse_st,
@@ -261,7 +272,7 @@ marginal_ps <- ggplot(ps_marginals, aes(
   theme(legend.position = "none")
 marginal_ps 
 
-marginal_hk <- ggplot(hk_marginals, aes(
+marginal_hk <- ggplot(all_marginals%>%filter(species=="Hake"), aes(
   # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
   y =cov,
   x = total_rmse_st,
@@ -275,6 +286,25 @@ marginal_hk <- ggplot(hk_marginals, aes(
   theme_classic()
 marginal_hk
 
+relevel_all_marginals<-all_marginals%>%
+  #group_by(species)%>%
+  filter(RMSE=="Combined")%>%
+  arrange(total_rmse_st)
+all_marginals$cov_species <- factor(all_marginals$cov_species, levels =relevel_all_marginals$cov_species)
+
+
+marg_all_plot<-ggplot(all_marginals%>%filter(RMSE=="Combined"), aes(
+  # Use reorder_within, specifying 'cov', 'total_rmse', and the grouping variable 'species'
+  y =reorder(cov,total_rmse_st),
+  x = total_rmse_st,
+  fill = total_rmse_st
+)) +
+  xlim(c(-.1,0.13))+
+  facet_wrap(~species, scales = "free_y") + # Use free_y scale
+  geom_bar(stat = "identity") +
+  labs(x = "", y = "Predictor") +
+  scale_fill_gradient(low = "gray100", high = "Darkgreen", ,limits=c(-.1,0.1)) +
+  theme_classic()
 
 #z<- ggplot()+theme_void()
 
@@ -290,14 +320,22 @@ marginal<- ggarrange(marginal_ps,
 marginal
 
 
-pdf(file = "Output/Figures/UnstableRemoved/MarginalMeanRMSE.pdf", width = 14, height = 11)
+pdf(file = "Output/Figures/Combined/MarginalMeanRMSE.pdf", width = 14, height = 11)
 marginal 
 dev.off()
 
-png(file = "Output/Figures/UnstableRemoved/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
+png(file = "Output/Figures/Combined/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
 marginal 
 dev.off()
 
+
+pdf(file = "Output/Figures/Combined/marg_all_plot.pdf", width = 9, height = 7)
+marg_all_plot
+dev.off()
+
+png(file = "Output/Figures/Combined/marg_all_plot.png",width = 900, height = 700, res = 100)
+marg_all_plot 
+dev.off()
 #### Rolling Window ####
 
 ##### yellowtail #####
@@ -417,10 +455,10 @@ rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_
 ##### Figures #####
 rollingplot <- ggarrange(rollingplot_hk,rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/UnstableRemoved/rollingplot.pdf", width =12, height = 8)
+pdf(file = "Output/Figures/AnalysisPart1/rollingplot.pdf", width =12, height = 8)
 rollingplot
 dev.off()
 
-png(file = "Output/Figures/UnstableRemoved/rollingplot.png",width = 1200, height = 800, res = 100)
+png(file = "Output/Figures/AnalysisPart1/rollingplot.png",width = 1200, height = 800, res = 100)
 rollingplot
 dev.off()

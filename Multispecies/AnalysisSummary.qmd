@@ -119,7 +119,7 @@ kable(ps_table)%>%
 {{< pagebreak >}}
 
 ```{r}
-#| label: tbl-sb
+#| label: tbl-sb_combined
 #| tbl-cap: "Top 5 models for sablefish using each of the three selection criteria"
 #| output: asis
 #| echo: FALSE
@@ -491,13 +491,178 @@ There are also some general patterns of which types of variables that were consi
 
 ![For types of covariates considered for more than one species, the total number (n) of covariates that were considered unstable and the rate (number unstable / total number considered)](Output/Figures/UnstableRemoved/countrate.png){#fig-countrate}
 
-## If we used a "combined" selection criteria, what do the best models look like?
+## If we used a "combined" selection criteria or "ensembled" best models, what do the predictions look like?
 ### Methods
-Add RMSE for all 3 criteria together and select model based on combined RMSE. 
+To consider which indicators had the best predictive capacity overall across metrics, marginal mean improvement was averaged across the 3 selection criteria.
 
+To conduct this analysis, I took the results for the March analysis (1994 - 2018; correlation = 0.5). For every model, RMSE LOO and RMSE LFO 5-year were combined (summed) and RMSE LOO was given a weight of 2 to prduce a "combined" RMSE. The model with the lowest combined RMSE was ranked as the best performng model. We then compared the 1-year ahead prediction of the last 5 years of this model to the best model with the other 3 selection criteria (LOO, LFO-5, LFO-10).
+
+To consider an ensemble model, the predictions for 1-year ahead of the top 5 models for each of the 3 selection criteria (LOO, LFO-5, LFO-10) were averaged. No weighting was done.
+
+### Findings
+
+- Combining selection criteria is informative for understanding which variables balance both predictive capacity and stability (@fig-marg_all)
+- In all circumstances, the best model using a combined selection criteria was one of the other highly ranked models, and helps dinstinguish between models with very similar RMSE for LFO (@fig-modeltscomb)
+- An ensemble approach isn't really helpful, most interannual variability is washed out ()
+
+![One year ahead predictions of recrutiment deviations (black line) for the last ten years (A., B., C.) and and leave-one-out predictions for all years (B., D., F.) for the best supported models based on RMSE for one year ahead predictions for the last 10 years (LFO10, blue), last 5 years (LFO5, yellow), RMSE for leave-one-out predictions (red, LOO) and combined selection criteria (pink). Rows depict individual species, Petrale Sole (A.,B.), Sablefish (C. D.) and Yellowtail reockfish (E. F.)](Output/Figures/Combined/all_ts.png){#fig-modeltscomb}
+
+![One-year-ahead predictions for the ensembled models](Output/Figures/Combined/all_ensemble.png){#fig-marg_all}
+
+![Marginal mean improvement of RMSE for each oceanographic driver across selection criteria (leave-future-out last 10 years, LFO10; leave-future-out last 5 years, LFO5; leave-one-out all years)](Output/Figures/Combined/marg_all_plot.png){#fig-marg_all}
+
+```{r}
+#| label: tbl-yt3
+#| tbl-cap: "Top 5 models for yellowtail using each of the three selection criteria"
+#| output: asis
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+yt<-read.csv("Output/Data/Combined/yt_table.csv")
+combinedyt<-yt%>%
+  select(variables,Hit,  dev.ex, AIC,RMSE_combined)%>%
+  arrange(RMSE_combined)%>%
+  mutate(SelectionCriteria="Combined")%>%
+  slice_head(n = 5)
+
+
+yt_table<-combinedyt
+yt_table[, sapply(yt_table, is.numeric)] <- round(yt_table[, sapply(yt_table, is.numeric)], digits = 2)
+
+#nrow(yt%>%filter(RMSE10==min(na.omit(yt$RMSE10))))
+#nrow(yt%>%filter(RMSE5==min(na.omit(yt$RMSE5))))
+
+kable(yt_table)%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = FALSE)%>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  # Use pack_rows to create the subheadings based on the 'Group' column
+  # Remove the 'Group' column from the main table display with remove_column
+  pack_rows(
+    index = table(fct_inorder(yt_table$SelectionCriteria)), # Automatically determine where groups start/end
+  # remove_column = TRUE, # Hide the 'Group' column in the final table
+    bold = TRUE, # Make subheadings bold
+    background = "#f7f7f7" # Optional: add a light background color
+  ) %>%
+  column_spec(column = 1, width = "5cm") 
+```
+
+```{r}
+#| label: tbl-ps3
+#| tbl-cap: "Top 5 models for petrale sole using each of the three selection criteria"
+#| output: asis
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+ps<-read.csv("Output/Data/Combined/ps_table.csv")
+combinedps<-ps%>%
+  select(variables,Hit,  dev.ex, AIC,RMSE_combined)%>%
+  arrange(RMSE_combined)%>%
+  mutate(SelectionCriteria="Combined")%>%
+  slice_head(n = 5)
+
+
+ps_table<-combinedps
+ps_table[, sapply(ps_table, is.numeric)] <- round(ps_table[, sapply(ps_table, is.numeric)], digits = 2)
+
+#nrow(ps%>%filter(RMSE10==min(na.omit(ps$RMSE10))))
+#nrow(ps%>%filter(RMSE5==min(na.omit(ps$RMSE5))))
+
+kable(ps_table)%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = FALSE)%>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  # Use pack_rows to create the subheadings based on the 'Group' column
+  # Remove the 'Group' column from the main table display with remove_column
+  pack_rows(
+    index = table(fct_inorder(ps_table$SelectionCriteria)), # Automatically determine where groups start/end
+  # remove_column = TRUE, # Hide the 'Group' column in the final table
+    bold = TRUE, # Make subheadings bold
+    background = "#f7f7f7" # Optional: add a light background color
+  ) %>%
+  column_spec(column = 1, width = "5cm") 
+```
+
+```{r}
+#| label: tbl-sb3
+#| tbl-cap: "Top 5 models for sablefish using each of the three selection criteria"
+#| output: asis
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+sb<-read.csv("Output/Data/Combined/sb_table.csv")
+combinedsb<-sb%>%
+  select(variables,Hit,  dev.ex, AIC,RMSE_combined)%>%
+  arrange(RMSE_combined)%>%
+  mutate(SelectionCriteria="Combined")%>%
+  slice_head(n = 5)
+
+
+sb_table<-combinedsb
+sb_table[, sapply(sb_table, is.numeric)] <- round(sb_table[, sapply(sb_table, is.numeric)], digits = 2)
+
+#nrow(sb%>%filter(RMSE10==min(na.omit(sb$RMSE10))))
+#nrow(sb%>%filter(RMSE5==min(na.omit(sb$RMSE5))))
+
+kable(sb_table)%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = FALSE)%>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  # Use pack_rows to create the subheadings based on the 'Group' column
+  # Remove the 'Group' column from the main table display with remove_column
+  pack_rows(
+    index = table(fct_inorder(sb_table$SelectionCriteria)), # Automatically determine where groups start/end
+  # remove_column = TRUE, # Hide the 'Group' column in the final table
+    bold = TRUE, # Make subheadings bold
+    background = "#f7f7f7" # Optional: add a light background color
+  ) %>%
+  column_spec(column = 1, width = "5cm") 
+```
+
+```{r}
+#| label: tbl-hk3
+#| tbl-cap: "Top 5 models for hake using each of the three selection criteria"
+#| output: asis
+#| echo: FALSE
+#| message: FALSE
+#| warning: FALSE
+
+hk<-read.csv("Output/Data/Combined/hk_table.csv")
+combinedhk<-hk%>%
+  select(variables,Hit,  dev.ex, AIC,RMSE_combined)%>%
+  arrange(RMSE_combined)%>%
+  mutate(SelectionCriteria="Combined")%>%
+  slice_head(n = 5)
+
+
+hk_table<-combinedhk
+hk_table[, sapply(hk_table, is.numeric)] <- round(hk_table[, sapply(hk_table, is.numeric)], digits = 2)
+
+#nrow(hk%>%filter(RMSE10==min(na.omit(hk$RMSE10))))
+#nrow(hk%>%filter(RMSE5==min(na.omit(hk$RMSE5))))
+
+kable(hk_table)%>%
+  kable_styling(bootstrap_options = c("striped", "hover"), 
+                full_width = FALSE)%>%
+    kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  # Use pack_rows to create the subheadings based on the 'Group' column
+  # Remove the 'Group' column from the main table display with remove_column
+  pack_rows(
+    index = table(fct_inorder(hk_table$SelectionCriteria)), # Automatically determine where groups start/end
+  # remove_column = TRUE, # Hide the 'Group' column in the final table
+    bold = TRUE, # Make subheadings bold
+    background = "#f7f7f7" # Optional: add a light background color
+  ) %>%
+  column_spec(column = 1, width = "5cm") 
+```
 ## Are basin scale variables more stable than these local variables?
 ### Methods
-Add Hake variables as listed in the notes
+Procure data from KM and NT
+Add Hake and sablefish variables as listed in the notes
+
 
 # TO DO
 
