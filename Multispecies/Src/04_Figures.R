@@ -23,7 +23,7 @@ library(scales)
 col_dv<-natparks.pals("DeathValley", 7)
 names(NatParksPalettes)
 #### Read In Data ####
-ps <- readRDS("Output/Data/Analysis Part 1/ps_model_fits.rds")
+ps <- readRDS("Output/Data/JuneUpdate/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
@@ -35,7 +35,7 @@ ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDAR
   # filter(type=="Main_RecrDev")%>%
   filter(year>1994&year<=2018)
 
-sb <- readRDS("Output/Data/Analysis Part 1/sb_model_fits.rds")
+sb <- readRDS("Output/Data/JuneUpdate/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
@@ -47,7 +47,7 @@ sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STA
   filter(type=="Main_RecrDev")%>%
   filter(year>1994&year<=2018)
 
-yt <- readRDS("Output/Data/Analysis Part 1/yt_model_fits.rds")
+yt <- readRDS("Output/Data/JuneUpdate/yt_model_fits.rds")
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
 yt_LFO10<-data.frame(yt[["LFO10"]][["results"]])
@@ -55,12 +55,12 @@ yt_loo_pred<-data.frame(yt[["LOO"]][["predicted"]])
 yt_LFO5_pred<-data.frame(yt[["LFO5"]][["predicted"]])
 yt_LFO10_pred<-data.frame(yt[["LFO10"]][["predicted"]])
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
-  select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
+  select(-c(X, HCI2pjuv,HCI1pjuv, LUSIannual, HCI2larv,HCI1larv))%>%
   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>1994&year<=2018)
 
 subsethk<-readRDS("Output/Data/hakesubset.rds")
-hk <- readRDS("Output/Data/Analysis Part 1/hk_model_fits.rds")
+hk <- readRDS("Output/Data/JuneUpdate/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -554,11 +554,11 @@ hk_lfo10_plot<-ggplot()+
   geom_point(data=hk_LFO10_pred%>%
                filter(ModelID %in% unique(best_lfo5$ModelID)), (aes(y=pred, x=year)), col=col_dv[3], pch=18, cex=2)+
   geom_point(data=best_combined%>%
-               filter(ModelID %in% unique(best_combined$ModelID)), (aes(y=pred_10, x=year)), col=col_dv[7], pch=15, cex=2)+
+               filter(ModelID %in% unique(best_combined$ModelID)), (aes(y=pred_10, x=year)), col=col_dv[7], pch=15, cex=2)
   
 
 #### Generatung ustable file ####
-unstable <-read.csv("Output/Data/Analysis Part 1/ustablevariables_1.csv")%>%
+unstable <-read.csv("Output/Data/JuneUpdate/ustablevariables_1.csv")%>%
   filter(nspecies>1)
 
 total<-unstable%>%
@@ -581,10 +581,10 @@ rate<-ggplot(total_type, aes(y = rate, x=Type)) +
 
 countrate<- ggarrange(count, rate, ncol = 2)
 
-pdf(file = "Output/Figures/Analysis Part 1/countrate.pdf", width =8, height = 2.5)
+pdf(file = "Output/Figures/JuneUpdate/countrate.pdf", width =8, height = 2.5)
 countrate
 dev.off()
 
-png(file = "Output/Figures/Analysis Part 1/countrate.png",width = 800, height = 250, res = 100)
+png(file = "Output/Figures/JuneUpdate/countrate.png",width = 800, height = 250, res = 100)
 countrate
 dev.off()

@@ -21,17 +21,20 @@ library(ggpubr)
 #### Removing unstable variables for sensitivity ####
 # Only run this if the full code has been run once. "mohns.rds" is output of the file 02_MohnsRho"
 
-unstable <-readRDS("Output/Data/AnalysisPart1/mohns.rds")%>%
-  filter(mohns > 0.1 | mohns < -0.1)
+#unstable <-readRDS("Output/Data/AnalysisPart1/mohns.rds")%>%
+#  filter(mohns > 0.1 | mohns < -0.1)
 
+set.seed(123) # For reproducibility
+white_noise <- arima.sim(model = list(order = c(0, 0, 0)), n = 25)
+#datawh<-data.frame(year=seq(1994,2018,1), white_noise=white_noise)
 #### Reading in the data ####
 yrfirst<- 1993
 yrlast<- 2018 #2010 
 corrcoef<-0.5#0.5
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
-  select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
-  select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
-    filter(type=="Main")%>%
+  select(-c(X, HCI2pjuv,HCI1pjuv, LUSIannual, HCI2larv,HCI1larv))%>%
+ # select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
+ #   filter(type=="Main")%>%
   filter(Datatreatment=="2025 Final"&year>yrfirst&year<=yrlast)
 
 #yt_loo <- readRDS("Output/Data/yt_selection.rds")
@@ -40,19 +43,19 @@ subsethk<-readRDS("Output/Data/AnalysisPart1/hakesubset.rds")
 hk_dat <- data.frame(read.csv("Data/Hake/DATA_Combined_glorys_hake_STANDARDIZED.csv"))%>%
   select(-X)%>%
   filter(type=="Main_RecrDev"&year>yrfirst&year<=yrlast)%>%
-  select(all_of(subsethk), Y_rec, year, type, sd)%>%
-  select(-c(data.frame(unstable%>%filter(Species == "Hake"))$variable))#turn off when using all variables
+  select(all_of(subsethk), LSTyolk,Y_rec, year, type, sd)
+ # select(-c(data.frame(unstable%>%filter(Species == "Hake"))$variable))#turn off when using all variables
   
 ps_dat <- data.frame(read.csv("Data/Petrale/DATA_Combined_glorys_petrale_STANDARDIZED.csv"))%>%
   select(-c(X, year.1))%>%
   filter(type=="Main_RecrDev")%>%
-  select(-c(data.frame(unstable%>%filter(Species == "Petrale Sole"))$variable))%>% #turn off when using all variables
+  #select(-c(data.frame(unstable%>%filter(Species == "Petrale Sole"))$variable))%>% #turn off when using all variables
   filter(year>yrfirst&year<=yrlast)
 
 sb_dat <- data.frame(read.csv("Data/Sablefish/data-combined-glorys-sablefish_STANDARDIZED.csv"))%>%
   select(-c(X))%>%
   filter(type=="Main_RecrDev")%>%
-  select(-c(data.frame(unstable%>%filter(Species == "Sablefish"))$variable))%>% #turn off when using all variables
+ # select(-c(data.frame(unstable%>%filter(Species == "Sablefish"))$variable))%>% #turn off when using all variables
   filter(year>yrfirst&year<=yrlast)
 
 #### Functions ####
@@ -98,6 +101,107 @@ combinations <- function(data,threshold,maxcovar){
   return(combs)
   
 }
+null_RMSE_LOO <-function(dat){
+  
+  formula_str<-"Y_rec ~  1"
+  results <- data.frame()
+  predicted <- data.frame()
+  for (j in jstart:n_year) {
+    train_index <- setdiff(jstart:n_year, j)  # All indices except the j-th
+    test_index <- j                 # The j-th index
+    
+    # Fit model on n-1 observations
+    gam_model <- gam(as.formula(formula_str),
+                     # weights = number_cwt_estimated,
+                     data = dat[which(dat$year != unique(dat$year)[j]), ])
+    
+    # Predict the excluded observation
+    predictions[which(dat$year == unique(dat$year)[j])] <- predict(gam_model, newdata = dat[which(dat$year == unique(dat$year)[j]), ])
+    scale_param <-sqrt(gam_model$sig2)
+    likelihood[which(dat$year == unique(dat$year)[j])]<-dnorm(dat[j,]$Y_rec, mean = predictions[j], sd = scale_param, log = TRUE)
+  }
+  
+  # re-fit the model
+  gam_model <- gam(as.formula(formula_str),
+                   data = dat)
+  predict_mod <- predict(gam_model)
+  # keep in mind RMSE is weird for binomial things
+  rmse_loo <- sqrt(sum((dat$Y_rec - predictions)^2)/length(predictions))
+  rmse <- sqrt(sum((dat$Y_rec -  predict_mod)^2)/length(predict_mod))
+  
+  r2<-summary(gam_model)$r.sq
+  dev.expl<-summary(gam_model)$dev.expl
+  
+  #use to calculate CV
+  #CV=sum(-2*log_lik_vector)
+  #use CV to calculate score 
+  #S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+  
+  # Extract variable names
+  var_names <- "Null"
+  # Store results with variable names padded to ensure there are always 3 columns
+  padded_vars <- c(var_names, rep(NA, 4 - length(var_names)))
+  TP= sum(dat$Y_rec >0 & predictions >0)
+  TN= sum(dat$Y_rec <0 & predictions <0)
+  FP= sum(dat$Y_rec >0 & predictions <0)
+  FN= sum(dat$Y_rec <0 & predictions >0)
+  Hit <- (TP + TN)/((TP+TN)+(FP+FN))
+  # Store results
+  models <- gam_model
+  
+  predicted <- rbind(predicted, data.frame(
+    ModelID = 0,
+    pred=predictions[jstart:n_year],
+    likelihood=likelihood[jstart:n_year],
+    year=unique(dat$year)[jstart:n_year],
+    var1 = padded_vars[1],
+    var2 = padded_vars[2],
+    var3 = padded_vars[3],
+    var3 = padded_vars[4]
+    
+  ))
+  
+  log_lik_vector<-likelihood[jstart:n_year]
+  #use to calculate CV
+  CV=sum(-2*log_lik_vector)
+  liksum=sum(log_lik_vector)
+  se=sd(log_lik_vector)/sqrt(length(log_lik_vector))
+  #use CV to calculate score 
+  S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+  
+  
+  results <- rbind(results, data.frame(
+    ModelID = 0,
+    species=species_name,
+    AIC = AIC(gam_model),
+    RMSE_loo = round(rmse_loo,3),
+    RMSE = round(rmse,3),
+    S = round(S,3),
+    se = round(se,3),
+    CV=round(CV,3),
+    Likelihood=round(liksum,3),
+    rsq_full=round(r2,2),
+    dev.ex=round(dev.expl,4),
+    Hit=Hit,
+    #rmse_imp=(rmse_sr_full-rmse)/rmse_sr_full, 
+    #rmse_ratio=rmse/rmse_sr_full,
+    #AUC = auc,
+    #direction = direction,
+    var1 = padded_vars[1],
+    var2 = padded_vars[2],
+    var3 = padded_vars[3],
+    var4 = padded_vars[4],
+    numvar=length(var_names)
+    
+    
+  ))
+  
+  results_output <- list("results" = results, "predicted" = predicted)
+  
+  return(results_output)
+  #saving the one step ahead predictions
+  print(i)
+}
 model_fit <- function(combinations, dat, species_name){
   models <- list()
   results <- data.frame()
@@ -109,6 +213,7 @@ model_fit <- function(combinations, dat, species_name){
     smooth_terms <- paste("s(", combinations[[i]], ", k = 3)", collapse = " + ")
     formula_str <- paste("Y_rec ~ ", smooth_terms)
     predictions <- numeric(nrow(dat))
+    likelihood <- numeric(nrow(dat))
     n_year <- length(unique(dat$year))
     # Loop over each observation
     for (j in jstart:n_year) {
@@ -122,6 +227,8 @@ model_fit <- function(combinations, dat, species_name){
       
       # Predict the excluded observation
       predictions[which(dat$year == unique(dat$year)[j])] <- predict(gam_model, newdata = dat[which(dat$year == unique(dat$year)[j]), ])
+      scale_param <-sqrt(gam_model$sig2)
+      likelihood[which(dat$year == unique(dat$year)[j])]<-dnorm(dat[j,]$Y_rec, mean = predictions[j], sd = scale_param, log = TRUE)
     }
     
     # re-fit the model
@@ -134,15 +241,12 @@ model_fit <- function(combinations, dat, species_name){
     
     r2<-summary(gam_model)$r.sq
     dev.expl<-summary(gam_model)$dev.expl
-    
-    # calculate out of sample likelihood
-    scale_param <-sd(dat$Y_rec-predictions)
-    #gam_model$sig2
-    log_lik_vector <- dnorm(dat$Y_rec, mean = predictions, sd = scale_param, log = TRUE)
+
     #use to calculate CV
-    CV=sum(-2*log_lik_vector)
+    #CV=sum(-2*log_lik_vector)
     #use CV to calculate score 
-    S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+    #S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+    
     # Extract variable names
     var_names <- gsub("s\\(([^,]+),.*", "\\1", combinations[[i]])
     # Store results with variable names padded to ensure there are always 3 columns
@@ -154,6 +258,28 @@ model_fit <- function(combinations, dat, species_name){
     Hit <- (TP + TN)/((TP+TN)+(FP+FN))
     # Store results
     models[[i]] <- gam_model
+    
+    predicted <- rbind(predicted, data.frame(
+      ModelID = i,
+      pred=predictions[jstart:n_year],
+      likelihood=likelihood[jstart:n_year],
+      year=unique(dat$year)[jstart:n_year],
+      var1 = padded_vars[1],
+      var2 = padded_vars[2],
+      var3 = padded_vars[3],
+      var3 = padded_vars[4]
+      
+    ))
+
+    log_lik_vector<-likelihood[jstart:n_year]
+    #use to calculate CV
+    CV=sum(-2*log_lik_vector)
+    liksum=sum(log_lik_vector)
+    se=sd(log_lik_vector)/sqrt(length(log_lik_vector))
+    #use CV to calculate score 
+    S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+    
+    
     results <- rbind(results, data.frame(
       ModelID = i,
       species=species_name,
@@ -161,7 +287,9 @@ model_fit <- function(combinations, dat, species_name){
       RMSE_loo = round(rmse_loo,3),
       RMSE = round(rmse,3),
       S = round(S,3),
+      se = round(se,3),
       CV=round(CV,3),
+      Likelihood=round(liksum,3),
       rsq_full=round(r2,2),
       dev.ex=round(dev.expl,4),
       Hit=Hit,
@@ -172,21 +300,13 @@ model_fit <- function(combinations, dat, species_name){
       var1 = padded_vars[1],
       var2 = padded_vars[2],
       var3 = padded_vars[3],
-      var4 = padded_vars[4]
+      var4 = padded_vars[4],
+      numvar=length(var_names)
       
       
     ))
     
-    predicted <- rbind(predicted, data.frame(
-      ModelID = i,
-      pred=predictions[jstart:n_year],
-      year=unique(dat$year)[jstart:n_year],
-      var1 = padded_vars[1],
-      var2 = padded_vars[2],
-      var3 = padded_vars[3],
-      var3 = padded_vars[4]
-      
-    ))
+
     #saving the one step ahead predictions
     print(i)
   }
@@ -286,12 +406,6 @@ rw_model_fit <- function(combinations, dataset,yrlast, window,species_name){
   return(results_output)
   
 }
-null_RMSE <-function(dat){
-  null<-dat%>%mutate(sr_null = 0)
-  sqerror<-(null$sr_null-null$Y_rec)^2
-  rmse_sr_full <- sqrt(mean(sqerror, na.rm=T))
-  return(rmse_sr_full)
-}
 LFO <- function(dat,combinations,n_pred, species_name){
   n_year <-length(unique(dat$year))
   n_train <- n_year-n_pred 
@@ -308,6 +422,7 @@ LFO <- function(dat,combinations,n_pred, species_name){
     smooth_terms <- paste("s(", combinations[[i]], ", k = 3)")
     formula_str <- paste("Y_rec ~ ", smooth_terms)
     predictions <-  numeric(n_pred )
+    likelihood<-numeric(n_pred )
     
     # Loop over each observation
     for (k in kstart:n_year) {
@@ -321,6 +436,8 @@ LFO <- function(dat,combinations,n_pred, species_name){
       # Predict the excluded observation
       predictions[which(dat$year == unique(dat$year)[k])] <- predict(gam_model, newdata = dat[which(dat$year == unique(dat$year)[k]), ])
       # re-fit the model
+      scale_param <-sqrt(gam_model$sig2)
+      likelihood[which(dat$year == unique(dat$year)[k])]<-dnorm(dat[k,]$Y_rec, mean = predictions[k], sd = scale_param, log = TRUE)
       
     }
     # re-fit the model
@@ -344,12 +461,38 @@ LFO <- function(dat,combinations,n_pred, species_name){
     
     # Store results
     models[[i]] <- gam_model
+    
+    predicted <- rbind(predicted, data.frame(
+      ModelID = i,
+      species=species_name,
+      year=unique(dat$year)[kstart:n_year],
+      pred=predictions[kstart:n_year],
+      likelihood=likelihood[kstart:n_year],
+      var1 = padded_vars[1],
+      var2 = padded_vars[2],
+      var3 = padded_vars[3],
+      var4 = padded_vars[4]
+      
+    ))
+    
+    log_lik_vector<-likelihood[kstart:n_year]
+    #use to calculate CV
+    CV=sum(-2*log_lik_vector)
+    liksum=sum(log_lik_vector)
+    se=sd(log_lik_vector)/sqrt(length(log_lik_vector))
+    #use CV to calculate score 
+    S = sqrt((1/(n_year-1))*sum((2*log_lik_vector-2*mean(log_lik_vector))^2))
+    
     results <- rbind(results, data.frame(
       ModelID = i,
       species=species_name,
       Hit=Hit,
       AIC = AIC(gam_model),
       RMSE = round(rmse,8),
+      S = round(S,3),
+      se = round(se,3),
+      CV=round(CV,3),
+      Likelihood=round(liksum,3),
       rsq=round(r2,2),
       dev.ex=round(dev.expl,4),
       n_pred=n_pred,
@@ -358,20 +501,10 @@ LFO <- function(dat,combinations,n_pred, species_name){
       var1 = padded_vars[1],
       var2= padded_vars[2],
       var3 = padded_vars[3],
-      var4 = padded_vars[4]
-      
+      var4 = padded_vars[4],
+      numvar=length(var_names)
     ))
-    predicted <- rbind(predicted, data.frame(
-      ModelID = i,
-      species=species_name,
-      year=unique(dat$year)[kstart:n_year],
-      pred=predictions[kstart:n_year],
-      var1 = padded_vars[1],
-      var2 = padded_vars[2],
-      var3 = padded_vars[3],
-      var4 = padded_vars[4]
-      
-    ))
+ 
     
     print(i)
   }
@@ -379,7 +512,7 @@ LFO <- function(dat,combinations,n_pred, species_name){
   
   return(results_output)
 }
-model_fit <- function(combinations, dat,species_name){
+model_fit_original <- function(combinations, dat,species_name){
   models <- list()
   results <- data.frame()
   predicted <- data.frame()
@@ -472,6 +605,7 @@ train_start<-1
 yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), corrcoef,3)
 yt_combinations<- yt_combinations_results$combinations
 yt_covariates<- yt_combinations_results$covariates
+yt_null <- null_RMSE_LOO(yt_dat)
 yt_results_5<- LFO(yt_dat,yt_combinations, 5,"Yellowtail")
 yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
 yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
@@ -479,9 +613,7 @@ yt_results_rw<- rw_model_fit(yt_combinations, yt_dat,yrlast, 15,"Yellowtail")
 yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo,"RW" = yt_results_rw)
 
 #write_rds(yt_results, "Output/Data/yt_model_fits.rds")
-write_rds(yt_results, "Output/Data/UnstableRemoved/yt_model_fits.rds")
-#single variable for Mohns and Marginal
-
+write_rds(yt_results, "Output/Data/Manuscript/yt_model_fits.rds")
 
 #### Sablefish ####
 
@@ -495,7 +627,7 @@ sb_results_rw<- rw_model_fit(sb_combinations, sb_dat,yrlast, 15,"Sablefish")
 sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo,"RW" = sb_results_rw)
 #write_rds(sb_results, "Output/Data/sb_model_single_fits.rds")
 #write_rds(sb_results, "Output/Data/sb_model_fits.rds")
-write_rds(sb_results, "Output/Data/UnstableRemoved/sb_model_fits.rds")
+write_rds(sb_results, "Output/Data/Manuscript/sb_model_fits.rds")
 
 
 #### Petrale Sole ####
@@ -510,7 +642,7 @@ ps_results_rw<- rw_model_fit(ps_combinations, ps_dat,yrlast, 15,"Petrale Sole")
 ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo,"RW" = ps_results_rw)
 #write_rds(ps_results, "Output/Data/ps_model_single_fits.rds")
 #write_rds(ps_results, "Output/Data/ps_model_fits.rds")
-write_rds(ps_results, "Output/Data/UnstableRemoved/ps_model_fits.rds")
+write_rds(ps_results, "Output/Data/Manuscript/ps_model_fits.rds")
 
 #### Hake ####
 
@@ -524,7 +656,7 @@ hk_results_rw<- rw_model_fit(hk_combinations, hk_dat,yrlast, 15,"Hake")
 hk_results <- list("LFO5" = hk_results_5, "LFO10" = hk_results_10,"LOO" = hk_results_loo,"RW" = hk_results_rw)
 #write_rds(hk_results, "Output/Data/hk_model_single_fits.rds")
 #write_rds(hk_results, "Output/Data/hk_model_fits.rds")
-write_rds(hk_results, "Output/Data/UnstableRemoved/hk_model_fits.rds")
+write_rds(hk_results, "Output/Data/Manuscript/hk_model_fits.rds")
 
 #### Single Covariates ####
 
@@ -536,7 +668,7 @@ sb_results_10<- LFO(sb_dat,sb_combinations, 10,"Sablefish")
 sb_results_loo<- model_fit(sb_combinations, sb_dat,"Sablefish")
 sb_results <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo)
 #write_rds(sb_results, "Output/Data/sb_model_single_fits_late.rds")
-write_rds(sb_results, "Output/Data/UnstableRemoved/sb_model_single_fits.rds")
+write_rds(sb_results, "Output/Data/Manuscript/sb_model_single_fits.rds")
 
 hk_combinations_results <- combinations(hk_dat, corrcoef,1)
 hk_combinations<- hk_combinations_results$combinations
@@ -546,7 +678,7 @@ hk_results_10<- LFO(hk_dat,hk_combinations, 10,"Hake")
 hk_results_loo<- model_fit(hk_combinations, hk_dat,"Hake")
 hk_results <- list("LFO5" = hk_results_5, "LFO10" = hk_results_10,"LOO" = hk_results_loo)
 #write_rds(hk_results, "Output/Data/hk_model_single_fits_late.rds")
-write_rds(hk_results, "Output/Data/UnstableRemoved/hk_model_single_fits.rds")
+write_rds(hk_results, "Output/Data/Manuscript/hk_model_single_fits.rds")
 
 yt_combinations_results <- combinations(yt_dat%>%select(-Datatreatment), corrcoef,1)
 yt_combinations<- yt_combinations_results$combinations
@@ -556,7 +688,7 @@ yt_results_10<- LFO(yt_dat,yt_combinations, 10,"Yellowtail")
 yt_results_loo<- model_fit(yt_combinations, yt_dat,"Yellowtail")
 yt_results <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo)
 #write_rds(yt_results, "Output/Data/yt_model_single_fits_late.rds")
-write_rds(yt_results, "Output/Data/UnstableRemoved/yt_model_single_fits.rds")
+write_rds(yt_results, "Output/Data/Manuscript/yt_model_single_fits.rds")
 
 ps_combinations_results <- combinations(ps_dat, corrcoef,1)
 ps_combinations<- ps_combinations_results$combinations
@@ -566,4 +698,45 @@ ps_results_10<- LFO(ps_dat,ps_combinations, 10,"Sablefish")
 ps_results_loo<- model_fit(ps_combinations, ps_dat,"Sablefish")
 ps_results <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo)
 #write_rds(ps_results, "Output/Data/ps_model_single_fits_late.rds")
-write_rds(ps_results, "Output/Data/UnstableRemoved/ps_model_single_fits.rds")
+write_rds(ps_results, "Output/Data/Manuscript/ps_model_single_fits.rds")
+
+
+###### Previous Best Models ######
+
+yt_covariates<- c("CutiSTIpjuv", "LSTpjuv", "ONIpjuv")
+yt_combined<-combn(yt_covariates, 3, simplify = FALSE)
+yt_best_combined<-  unlist(yt_covariates, recursive = FALSE)
+yt_results_5<- LFO(yt_dat,yt_combined, 5,"Yellowtail")
+yt_results_10<- LFO(yt_dat,yt_combined, 10,"Yellowtail")
+yt_results_loo<- model_fit(yt_combined, yt_dat,"Yellowtail")
+yt_results_best <- list("LFO5" = yt_results_5, "LFO10" = yt_results_10,"LOO" = yt_results_loo)
+
+ps_covariates<- c("DDpre", "MLDegg", "CSTlarv", "CSTbjuv.a")
+ps_combined<-combn(ps_covariates, 4, simplify = FALSE)
+ps_best_combined<-  unlist(ps_covariates, recursive = FALSE)
+ps_results_5<- LFO(ps_dat,ps_combined, 5,"Petrale Sole Model 1")
+ps_results_10<- LFO(ps_dat,ps_combined, 10,"Petrale Sole Model 1")
+ps_results_loo<- model_fit(ps_combined, ps_dat,"Petrale Sole Model 1")
+ps_results_best1 <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo)
+
+ps_covariates<- c("DDpjuv", "LSTlarv")
+ps_combined<-combn(ps_covariates, 2, simplify = FALSE)
+ps_best_combined<-  unlist(ps_covariates, recursive = FALSE)
+ps_results_5<- LFO(ps_dat,ps_combined, 5,"Petrale Sole Model 2")
+ps_results_10<- LFO(ps_dat,ps_combined, 10,"Petrale Sole Model 2")
+ps_results_loo<- model_fit(ps_combined, ps_dat,"Petrale Sole Model 2")
+ps_results_best2 <- list("LFO5" = ps_results_5, "LFO10" = ps_results_10,"LOO" = ps_results_loo)
+
+sb_covariates<- c("CSTegg","DDpre", "DDegg", "LSTyolk")
+sb_combined<-combn(sb_covariates, 4, simplify = FALSE)
+sb_best_combined<-  unlist(sb_covariates, recursive = FALSE)
+sb_results_5<- LFO(sb_dat,sb_combined, 5,"Sablefish")
+sb_results_10<- LFO(sb_dat,sb_combined, 10,"Sablefish")
+sb_results_loo<- model_fit(sb_combined, sb_dat,"Sablefish")
+sb_results_best <- list("LFO5" = sb_results_5, "LFO10" = sb_results_10,"LOO" = sb_results_loo)
+
+write_rds(ps_results_best1, "Output/Data/Manuscript/ps_model_best_og1.rds")
+write_rds(ps_results_best2, "Output/Data/Manuscript/ps_model_best_og2.rds")
+write_rds(yt_results_best, "Output/Data/Manuscript/yt_model_best_og1.rds")
+write_rds(sb_results_best, "Output/Data/Manuscript/sb_model_best_og1.rds")
+

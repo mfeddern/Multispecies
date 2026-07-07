@@ -92,28 +92,28 @@ null_RMSE <-function(dat){
 
 #### Read In Data ####
 
-ps <- readRDS("Output/Data/AnalysisPart1/ps_model_fits.rds")
+ps <- readRDS("Output/Data/Manuscript/ps_model_fits.rds")
 ps_loo<-data.frame(ps[["LOO"]][["results"]])
 ps_LFO5<-data.frame(ps[["LFO5"]][["results"]])
 ps_LFO10<-data.frame(ps[["LFO10"]][["results"]])
 
-sb <- readRDS("Output/Data/AnalysisPart1/sb_model_fits.rds")
+sb <- readRDS("Output/Data/Manuscript/sb_model_fits.rds")
 sb_loo<-data.frame(sb[["LOO"]][["results"]])
 sb_LFO5<-data.frame(sb[["LFO5"]][["results"]])
 sb_LFO10<-data.frame(sb[["LFO10"]][["results"]])
 
-yt <- readRDS("Output/Data/AnalysisPart1/yt_model_fits.rds")
+yt <- readRDS("Output/Data/Manuscript/yt_model_fits.rds")
 
 yt_loo<-data.frame(yt[["LOO"]][["results"]])
 yt_LFO5<-data.frame(yt[["LFO5"]][["results"]])
 yt_LFO10<-data.frame(yt[["LFO10"]][["results"]])
 yt_dat <- data.frame(read.csv("Data/Yellowtail/yt_fulldataset_STANDARDIZED.csv"))%>%
-  select(-c(X, hci2_pjuv,hci1_pjuv, lusi_annual, hci2_larv,hci1_larv))%>%
+  select(-c(X, HCI2pjuv,HCI1pjuv, LUSIannual, HCI2larv,HCI1larv))%>%
   filter(type=="Main")%>%
-  select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
+  #select(-c(data.frame(unstable%>%filter(Species == "Yellowtail"))$variable))%>% #turn off when using all variables
   filter(Datatreatment=="2025 Final"&year>1993)
 
-hk <- readRDS("Output/Data/AnalysisPart1/hk_model_fits.rds")
+hk <- readRDS("Output/Data/Manuscript/hk_model_fits.rds")
 hk_loo<-data.frame(hk[["LOO"]][["results"]])
 hk_LFO5<-data.frame(hk[["LFO5"]][["results"]])
 hk_LFO10<-data.frame(hk[["LFO10"]][["results"]])
@@ -222,7 +222,7 @@ all_marginals<-marginals%>%
   bind_rows(combined_marginal)%>%
   mutate(cov_species=paste(cov,"_",species))
 
-write_rds(all_marginals, "Output/Data/AnalysisPart1/marginals.rds")
+write_rds(all_marginals, "Output/Data/Manuscript/marginals.rds")
 
 
 #### Figures #### 
@@ -320,22 +320,22 @@ marginal<- ggarrange(marginal_ps,
 marginal
 
 
-pdf(file = "Output/Figures/Combined/MarginalMeanRMSE.pdf", width = 14, height = 11)
-marginal 
-dev.off()
+#pdf(file = "Output/Figures/WhiteNoise/MarginalMeanRMSE.pdf", width = 14, height = 11)
+#marginal 
+#dev.off()
 
-png(file = "Output/Figures/Combined/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
-marginal 
-dev.off()
+#png(file = "Output/Figures/WhiteNoise/MarginalMeanRMSE.png",width = 1400, height = 1100, res = 100)
+#marginal 
+#dev.off()
 
 
-pdf(file = "Output/Figures/Combined/marg_all_plot.pdf", width = 9, height = 7)
-marg_all_plot
-dev.off()
+#pdf(file = "Output/Figures/WhiteNoise/marg_all_plot.pdf", width = 9, height = 7)
+#marg_all_plot
+#dev.off()
 
-png(file = "Output/Figures/Combined/marg_all_plot.png",width = 900, height = 700, res = 100)
-marg_all_plot 
-dev.off()
+#png(file = "Output/Figures/WhiteNoise/marg_all_plot.png",width = 900, height = 700, res = 100)
+#marg_all_plot 
+#dev.off()
 #### Rolling Window ####
 
 ##### yellowtail #####
@@ -358,13 +358,16 @@ rolling_yt$total_rmse <- apply(rolling_yt[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_yt$total_aic <- apply(rolling_yt[,c("aic_12", "aic_23")], 1, mean)/3
 
 rollingplot_yt<-ggplot(rolling_yt,aes(x=as.factor(LastYear), y=cov, fill= total_rmse )) + 
-  xlab("First Year")+
+  xlab("")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
-  ylab("Oceanographic Conditions")+
-  ggtitle("Yellowtail")+
+  ylab("")+
+  ggtitle("Yellowtail Rockfish")+
   geom_tile()+
   theme_bw()+
-  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
+  labs(fill = "RMSE \n Improvment")+
+  theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))+
+theme(legend.position = "none",plot.title = element_text(hjust = 0.5))
+
 rollingplot_yt
 
 ##### hake #####
@@ -387,12 +390,14 @@ rolling_hk$total_rmse <- apply(rolling_hk[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_hk$total_aic <- apply(rolling_hk[,c("aic_12", "aic_23")], 1, mean)/3
 
 rollingplot_hk<-ggplot(rolling_hk,aes(x=as.factor(LastYear), y=cov, fill= total_rmse )) + 
-  xlab("First Year")+
+  xlab("")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
-  ylab("Oceanographic Conditions")+
+  ylab("")+
   ggtitle("Hake")+
   geom_tile()+
   theme_bw()+
+  theme(legend.position = "none",plot.title = element_text(hjust = 0.5))+
+  labs(fill = "RMSE \n Improvement")+
   theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
 rollingplot_hk
 ##### sablefish #####
@@ -416,16 +421,18 @@ rolling_sb$total_rmse <- apply(rolling_sb[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_sb$total_aic <- apply(rolling_sb[,c("aic_12", "aic_23")], 1, mean)/3
 
 rollingplot_sb<-ggplot(rolling_sb,aes(x=as.factor(LastYear), y=cov, fill= total_rmse)) + 
-  xlab("First Year")+
+  xlab("")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
-  ylab("Oceanographic Conditions")+
+  ylab("")+
   ggtitle("Sablefish")+
   geom_tile()+
   theme_bw()+
+  theme(legend.position = "none",plot.title = element_text(hjust = 0.5))+
+  labs(fill = "RMSE \n Improvment")+
   theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
 
 
-##### sablefish #####
+##### petrale #####
 ps_RW<-data.frame(ps[["RW"]][["results"]])
 firstyr<-unique(ps_RW$firstyear)
 lastyr<-unique(ps_RW$lastyear)
@@ -444,21 +451,109 @@ rolling_ps$total_rmse <- apply(rolling_ps[,c("rmse_12","rmse_23")], 1, mean)/3
 rolling_ps$total_aic <- apply(rolling_ps[,c("aic_12", "aic_23")], 1, mean)/3
 
 rollingplot_ps<-ggplot(rolling_ps,aes(x=as.factor(LastYear), y=cov, fill= total_rmse)) + 
-  xlab("First Year")+
+  xlab("")+
   scale_fill_gradient(low = "white", high = "Darkgreen") +
-  ylab("Oceanographic Conditions")+
+  ylab("")+
   ggtitle("Petrale Sole")+
   geom_tile()+
   theme_bw()+
+  theme(legend.position = "none",plot.title = element_text(hjust = 0.5))+
+  labs(fill = "RMSE \n Improvment")+
   theme(axis.text.x = element_text(size = 8),plot.title = element_text(hjust = 0.5))
 
 ##### Figures #####
 rollingplot <- ggarrange(rollingplot_hk,rollingplot_ps, rollingplot_sb, rollingplot_yt, ncol = 2, nrow = 2)
 
-pdf(file = "Output/Figures/AnalysisPart1/rollingplot.pdf", width =12, height = 8)
-rollingplot
-dev.off()
+rollingall<-ggarrange(rollingplot_hk,rollingplot_ps,rollingplot_yt,rollingplot_sb, ncol = 2, nrow = 2,     
+                       common.legend = TRUE,  
+                       legend = "right", labels = c("A", "B","C","D") )
 
-png(file = "Output/Figures/AnalysisPart1/rollingplot.png",width = 1200, height = 800, res = 100)
-rollingplot
-dev.off()
+rollingall<-annotate_figure(rollingall,
+                             bottom = text_grob("Last Year"))
+
+ggsave("Output/Figures/Manuscript/Figure3rollingall.pdf", plot = rollingall, width = 9, height = 7)
+ggsave("Output/Figures/Manuscript/Figure3rollingall.png", plot = rollingall, width = 9, height = 7,bg = "white", dpi = 300)
+
+
+##### Rolling Summaries ####
+
+ps_pre=rolling_ps%>%
+  filter(LastYear<=2012)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_pre=mean(total_rmse),sd_marg_rmse_pre=sd(total_rmse))
+ps_post=rolling_ps%>%
+  filter(LastYear>2012)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_post=mean(total_rmse),sd_marg_rmse_post=sd(total_rmse))
+ps_summary=ps_pre%>%left_join(ps_post)%>%
+  mutate(difference=mean_marg_rmse_pre-mean_marg_rmse_post,
+         sd=sqrt(sd_marg_rmse_pre^2 + sd_marg_rmse_post^2))%>%
+  mutate(Species="B. Petrale Sole", breakpoint="Breakpoint = 2013")
+
+hk_pre=rolling_hk%>%
+  filter(LastYear<=2013)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_pre=mean(total_rmse),sd_marg_rmse_pre=sd(total_rmse))
+hk_post=rolling_hk%>%
+  filter(LastYear>2013)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_post=mean(total_rmse),sd_marg_rmse_post=sd(total_rmse))
+hk_summary=hk_pre%>%left_join(hk_post)%>%
+  mutate(difference=mean_marg_rmse_pre-mean_marg_rmse_post,
+         sd=sqrt(sd_marg_rmse_pre^2 + sd_marg_rmse_post^2))%>%
+mutate(Species="A. Pacific Hake", breakpoint="Breakpoint = 2014")
+
+
+yt_pre=rolling_yt%>%
+  filter(LastYear<=2015)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_pre=mean(total_rmse),sd_marg_rmse_pre=sd(total_rmse))
+yt_post=rolling_yt%>%
+  filter(LastYear>2015)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_post=mean(total_rmse),sd_marg_rmse_post=sd(total_rmse))
+yt_summary=yt_pre%>%left_join(yt_post)%>%
+  mutate(difference=mean_marg_rmse_pre-mean_marg_rmse_post,
+         sd=sqrt(sd_marg_rmse_pre^2 + sd_marg_rmse_post^2))%>%
+mutate(Species="C. Yellowtail Rockfish", breakpoint="Breakpoint = 2016")
+
+sb_pre=rolling_sb%>%
+  filter(LastYear<=2016)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_pre=mean(total_rmse),sd_marg_rmse_pre=sd(total_rmse))
+sb_post=rolling_sb%>%
+  filter(LastYear>2016)%>%
+  group_by(cov)%>%
+  summarise(mean_marg_rmse_post=mean(total_rmse),sd_marg_rmse_post=sd(total_rmse))
+sb_summary=sb_pre%>%left_join(sb_post)%>%
+  mutate(difference=mean_marg_rmse_pre-mean_marg_rmse_post,
+         sd=sqrt(sd_marg_rmse_pre^2 + sd_marg_rmse_post^2))%>%
+mutate(Species="D. Sablefish", breakpoint="Breakpoint = 2016")
+
+summary<-sb_summary%>%
+  bind_rows(yt_summary)%>%
+  bind_rows(hk_summary)%>%
+  bind_rows(ps_summary)
+
+difference<- ggplot(summary, aes(x =difference, y = cov)) +
+  # Add a vertical reference line at 0
+  geom_vline(xintercept = 0, linetype = "dashed", color = "gray50") +
+  # Add the whiskers (Error bars)
+  geom_errorbar(aes(xmin = difference-sd, 
+                    xmax = difference+sd), width = 0.3, size = 0.6) +
+  # Add the dots (Point estimates)
+  geom_point( size = 1) +
+  facet_wrap(~ Species, scales = "free_y")+
+  # Clean up formatting
+  labs(x = "Estimate (± 1 SD)", y = "Predictors") +
+  geom_text(
+    #data = , 
+    aes(x = 0.2, y = 2, label = breakpoint),
+    hjust = 1.1, vjust = 1.5,       # Nudge text away from the absolute edges
+    size = 3.5, color = "red", inherit.aes = FALSE
+  )+
+  theme_bw()
+
+ggsave("Output/Figures/Manuscript/difference.pdf", plot = difference, width = 7, height = 7)
+ggsave("Output/Figures/Manuscript/difference.png", plot = difference, width = 7, height = 7,bg = "white", dpi = 300)
+
